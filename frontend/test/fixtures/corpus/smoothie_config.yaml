@@ -1,0 +1,21 @@
+version: smoothie.config.v1
+profile: web-app
+brief:
+  intent: Compile the billing area into a queryable, operable map for the dunning flow.
+  goals:
+    - id: dunning
+      text: explain and operate the dunning (failed-payment) flow
+      done_when: a past-due invoice is retried and marked paid
+  target:
+    base_url: https://app.example.com
+    allowed_origins:
+      - https://app.example.com
+    start_paths:
+      - /billing
+  glossary:
+    - term: dunning
+      definition: the automated retry/notification sequence for failed payments
+  manifest:
+    app_name: Example Billing
+    author: Mels
+    organization: 4tyone

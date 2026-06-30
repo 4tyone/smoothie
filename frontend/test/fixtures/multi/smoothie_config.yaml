@@ -1,0 +1,14 @@
+version: smoothie.config.v1
+profile: web-app
+brief:
+  intent: Compile billing docs from multiple sources into one connected map.
+  goals:
+    - id: dunning
+      text: explain and operate the dunning (failed-payment) flow
+      done_when: a past-due invoice is retried and marked paid
+  target:
+    base_url: https://app.example.com
+    allowed_origins:
+      - https://app.example.com
+  manifest:
+    app_name: Example Billing

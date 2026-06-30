@@ -1,0 +1,8 @@
+version: smoothie.config.v1
+profile: corpus
+brief:
+  intent: Compile two independent guides that overlap, to test cross-source
+    verification.
+  goals:
+    - id: signin
+      text: explain how to sign in

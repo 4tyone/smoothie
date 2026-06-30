@@ -1,0 +1,3 @@
+invoice,status,amount
+INV-1,past_due,100
+INV-2,paid,50

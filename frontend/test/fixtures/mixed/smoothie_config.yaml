@@ -1,0 +1,7 @@
+version: smoothie.config.v1
+profile: corpus
+brief:
+  intent: Compile a mixed-modality knowledge base into one connected map.
+  goals:
+    - id: overview
+      text: explain the system across its documents

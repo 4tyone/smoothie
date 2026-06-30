@@ -1,0 +1,1 @@
+{"service":"billing","depends_on":["database","auth"]}
