@@ -1,0 +1,36 @@
+# The SVM crate — the Rust consumer half (ADR-0001). Standalone, zero heavy deps:
+# no model, no media tools, no browser. Builds the `svm` binary that consumes a `bc.v1`.
+# The library is named `smoothie` (the forked substrate); the shipped binary is `svm`.
+[package]
+name = "smoothie"
+version = "0.1.0"
+edition = "2024"
+description = "SVM — the deterministic Smoothie runtime that consumes a bc.v1 BC"
+license = "MIT"
+repository = "https://github.com/smoothie-dev/smoothie"
+autobins = false
+
+[lib]
+name = "smoothie"
+path = "src/lib.rs"
+
+# The consumer artifact. Named `svm` per ADR-0001 (`svm` ⊂ `smoothie`).
+[[bin]]
+name = "svm"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+glob = "0.3"
+toml = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1"
+anyhow = "1"
+fs2 = "0.4"
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+tempfile = "3"

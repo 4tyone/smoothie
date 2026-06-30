@@ -1,0 +1,24 @@
+{
+  "name": "@smoothie/schema",
+  "version": "0.1.0",
+  "description": "bc.v1 — the Smoothie BC contract: TypeScript types + JSON Schema, the single source of truth for the seam (spec 02/07).",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./bc.v1.schema.json": "./bc.v1.schema.json"
+  },
+  "files": ["dist", "bc.v1.schema.json", "examples"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

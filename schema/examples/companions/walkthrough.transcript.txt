@@ -1,0 +1,2 @@
+00:00 Welcome. To retry a past-due invoice, open Billing.
+00:14 Click "Retry" next to the invoice; it is marked paid on success.

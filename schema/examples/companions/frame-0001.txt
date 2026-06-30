@@ -1,0 +1,1 @@
+placeholder frame companion (binary PNG in a real compile)

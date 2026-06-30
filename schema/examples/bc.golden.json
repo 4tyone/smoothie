@@ -1,0 +1,236 @@
+{
+  "schema": "bc.v1",
+  "manifest": {
+    "bc_id": "bc-billing-demo-0001",
+    "profile": "web-app",
+    "app": {
+      "name": "Example Billing",
+      "app_ref": "example/billing",
+      "base_url": "https://app.example.com",
+      "allowed_origins": ["https://app.example.com"]
+    },
+    "producer": { "name": "smoothie", "version": "0.1.0", "commit": "phase0-golden" },
+    "created_at": "2026-06-29T00:00:00Z",
+    "updated_at": "2026-06-29T00:00:00Z",
+    "counts": { "sources": 3, "facts": 3, "nodes": 3, "edges": 3, "views": 2, "outlines": 1 },
+    "authorship": { "author": "Mels", "organization": "4tyone", "signature": "ed25519:demo" }
+  },
+
+  "brief": {
+    "brief_id": "brief-billing",
+    "text": "Compile the billing area into an operable, queryable map for the dunning flow.",
+    "goals": [
+      { "id": "dunning", "text": "explain and operate the dunning (failed-payment) flow", "done_when": "a past-due invoice is retried and marked paid" },
+      { "id": "invoice-states", "text": "map the invoice lifecycle states and transitions" }
+    ],
+    "scope": { "include": ["billing", "invoices"], "exclude": ["marketing site"] },
+    "created_at": "2026-06-29T00:00:00Z"
+  },
+
+  "sources": {
+    "src-walkthrough": {
+      "source_id": "src-walkthrough",
+      "kind": "video",
+      "path": "walkthrough.mp4",
+      "hash": "sha256:11111111",
+      "title": "Billing walkthrough",
+      "media_type": "video/mp4",
+      "companions": [
+        { "kind": "transcript", "path": "companions/walkthrough.transcript.txt", "hash": "sha256:aaa" },
+        { "kind": "frame", "path": "companions/frame-0001.txt", "source_span": { "kind": "time", "t_start": 14.0, "t_end": 14.5 } }
+      ],
+      "metadata": { "duration_s": 42 }
+    },
+    "src-guide": {
+      "source_id": "src-guide",
+      "kind": "pdf",
+      "path": "billing-guide.pdf",
+      "hash": "sha256:22222222",
+      "title": "Billing guide",
+      "media_type": "application/pdf",
+      "companions": []
+    },
+    "src-live": {
+      "source_id": "src-live",
+      "kind": "crawl",
+      "uri": "https://app.example.com/billing",
+      "title": "Live billing crawl (hand-authored resolution receipt)",
+      "companions": []
+    }
+  },
+
+  "facts": {
+    "f-login": {
+      "fact_id": "f-login",
+      "kind": "knowledge",
+      "text": "Users sign in at /login before reaching billing.",
+      "confidence": 0.92,
+      "view_id": "v-login",
+      "fidelity": "claimed",
+      "source_refs": [ { "source_id": "src-guide", "span": { "kind": "doc", "page": 1, "section": "Getting started", "lines": [10, 18], "label": "Sign in" } } ],
+      "brief_id": "brief-billing"
+    },
+    "f-dunning": {
+      "fact_id": "f-dunning",
+      "kind": "action",
+      "text": "Click Retry next to a past-due invoice to re-attempt payment.",
+      "confidence": 0.81,
+      "view_id": "v-billing",
+      "fidelity": "claimed",
+      "source_refs": [ { "source_id": "src-walkthrough", "span": { "kind": "time", "t_start": 14.0, "t_end": 22.0 } } ],
+      "brief_id": "brief-billing",
+      "action_draft": { "verb": "click", "target": "Retry button", "locator_hint": "button labelled Retry", "expected_effect": "invoice marked paid" }
+    },
+    "f-refund": {
+      "fact_id": "f-refund",
+      "kind": "knowledge",
+      "text": "There may be a refund confirmation step, but the docs are unclear.",
+      "confidence": 0.35,
+      "fidelity": "guessed",
+      "source_refs": [ { "source_id": "src-guide", "span": { "kind": "doc", "page": 4, "label": "Refunds" } } ]
+    }
+  },
+
+  "graph": {
+    "nodes": {
+      "n-login": {
+        "id": "n-login",
+        "title": "Sign in",
+        "summary": "The login screen.",
+        "kind": "screen",
+        "view_id": "v-login",
+        "fact_ids": ["f-login"],
+        "action": { "kind": "goto", "url": "https://app.example.com/login" },
+        "checks": [ { "kind": "url_matches", "expected": "/login" } ],
+        "fidelity": "claimed",
+        "source_refs": [ { "source_id": "src-guide", "span": { "kind": "doc", "page": 1, "section": "Getting started" } } ]
+      },
+      "n-dunning": {
+        "id": "n-dunning",
+        "title": "Dunning flow",
+        "summary": "The failed-payment retry feature.",
+        "kind": "feature",
+        "view_id": "v-billing",
+        "fact_ids": ["f-dunning"],
+        "checks": [],
+        "fidelity": "claimed",
+        "source_refs": [ { "source_id": "src-walkthrough", "span": { "kind": "time", "t_start": 14.0, "t_end": 22.0 } } ]
+      },
+      "n-retry-invoice": {
+        "id": "n-retry-invoice",
+        "title": "Retry a past-due invoice",
+        "summary": "Click Retry; the invoice is marked paid.",
+        "kind": "action",
+        "view_id": "v-billing",
+        "fact_ids": ["f-dunning"],
+        "action": {
+          "kind": "click",
+          "locator": {
+            "description": "the Retry button on a past-due invoice row",
+            "primary": { "by": "testid", "value": "retry-invoice-btn", "name": "Retry" },
+            "fallbacks": [ { "by": "role", "value": "button", "name": "Retry" } ]
+          }
+        },
+        "checks": [
+          { "kind": "visible", "locator": { "description": "Paid badge", "primary": { "by": "text", "value": "Paid" }, "fallbacks": [] } }
+        ],
+        "done_when": "the invoice shows Paid",
+        "fidelity": "confirmed",
+        "source_refs": [
+          { "source_id": "src-walkthrough", "span": { "kind": "time", "t_start": 18.0, "t_end": 22.0 } },
+          { "source_id": "src-live", "span": { "kind": "crawl", "page_id": "billing-1", "url": "https://app.example.com/billing" } }
+        ]
+      }
+    },
+    "edges": [
+      { "from": "n-login", "to": "n-dunning", "kind": "next", "label": "after sign-in", "fidelity": "claimed", "source_refs": [ { "source_id": "src-guide", "span": { "kind": "doc", "page": 1 } } ] },
+      { "from": "n-dunning", "to": "n-retry-invoice", "kind": "contains", "fidelity": "guessed", "source_refs": [ { "source_id": "src-walkthrough", "span": { "kind": "time", "t_start": 14.0, "t_end": 22.0 } }, { "source_id": "src-guide", "span": { "kind": "doc", "page": 2 } } ] },
+      { "from": "n-login", "to": "n-retry-invoice", "kind": "transition", "label": "observed live", "fidelity": "confirmed", "source_refs": [ { "source_id": "src-live", "span": { "kind": "crawl", "page_id": "billing-1", "url": "https://app.example.com/billing" } } ] }
+    ],
+    "roots": ["n-login"]
+  },
+
+  "views": {
+    "v-login": {
+      "view_id": "v-login",
+      "title": "Login",
+      "url_patterns": ["/login"],
+      "node_ids": ["n-login"],
+      "fidelity": "claimed",
+      "observations": [],
+      "aliases": ["sign-in"]
+    },
+    "v-billing": {
+      "view_id": "v-billing",
+      "title": "Billing",
+      "url_patterns": ["/billing", "/billing/invoices"],
+      "node_ids": ["n-dunning", "n-retry-invoice"],
+      "fidelity": "confirmed",
+      "observations": [
+        {
+          "observation_id": "obs-billing-1",
+          "source_ref": { "source_id": "src-live", "span": { "kind": "crawl", "page_id": "billing-1", "url": "https://app.example.com/billing" } },
+          "url": "https://app.example.com/billing",
+          "captured_at": "2026-06-29T00:00:00Z",
+          "mode": "read-only"
+        }
+      ]
+    }
+  },
+
+  "outlines": {
+    "o-dunning": {
+      "outline_id": "o-dunning",
+      "brief_id": "brief-billing",
+      "title": "Run the dunning flow",
+      "fidelity": "claimed",
+      "scenes": [
+        { "scene_id": "s-signin", "title": "Sign in", "node_ids": ["n-login"], "fidelity": "claimed" },
+        { "scene_id": "s-retry", "title": "Retry a past-due invoice", "node_ids": ["n-dunning", "n-retry-invoice"], "done_when": "invoice marked paid", "fidelity": "claimed", "gaps": ["gap:refund-confirmation"] }
+      ]
+    }
+  },
+
+  "glossary": {
+    "dunning": {
+      "definition": "the automated retry/notification sequence for failed payments",
+      "references": ["src-guide:p2"]
+    }
+  },
+
+  "notes": {
+    "gap:refund-confirmation": {
+      "text": "No resolvable action found for confirming a refund; the walkthrough skips it.",
+      "kind": "action"
+    },
+    "decision:prefer-video": {
+      "text": "On conflicts, prefer the narrated walkthrough over the PDF (it may be stale).",
+      "refs": [ { "source_id": "src-walkthrough", "span": { "kind": "time", "t_start": 0.0, "t_end": 5.0 } } ]
+    }
+  },
+
+  "cache": {
+    "hot": ["n-login"],
+    "trending": [],
+    "shadow": ["n-retry-invoice"],
+    "promotion": { "last_promoted": "2026-06-29T00:00:00Z" }
+  },
+
+  "policy": {
+    "scope": { "allowed_origins": ["https://app.example.com"], "url_denylist": ["https://app.example.com/admin"], "same_origin_only": true },
+    "actions": {
+      "blocklist_verbs": [],
+      "allow_irreversible": false,
+      "allow_form_submit": true,
+      "allow_rules": [ { "match": "click Retry", "reason": "core dunning action" } ],
+      "danger": [ { "match": "delete *", "level": "approve", "reason": "destructive" } ]
+    },
+    "budget": { "max_actions": 200, "max_pages": 50, "max_depth": 5, "max_cost": 1.0, "max_seconds": 600 },
+    "approval": { "require_for": "irreversible", "handler": "interactive" },
+    "secrets": { "redact_patterns": ["password", "card_number"] }
+  },
+
+  "extensions": {
+    "com.smoothie.reader.video": { "fps_sampled": 1, "scene_cuts": 3 }
+  }
+}

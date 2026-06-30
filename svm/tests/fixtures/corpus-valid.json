@@ -1,0 +1,29 @@
+{
+  "schema": "bc.v1",
+  "manifest": {
+    "bc_id": "bc-corpus",
+    "profile": "corpus",
+    "producer": { "name": "smoothie", "version": "0.1.0" },
+    "created_at": "2026-06-29T00:00:00Z",
+    "updated_at": "2026-06-29T00:00:00Z",
+    "counts": { "sources": 1, "facts": 0, "nodes": 1, "edges": 0, "views": 0, "outlines": 0 }
+  },
+  "sources": {
+    "s1": { "source_id": "s1", "kind": "markdown", "companions": [] }
+  },
+  "graph": {
+    "nodes": {
+      "n1": {
+        "id": "n1",
+        "title": "A topic",
+        "summary": "Just documentary content; no executable payload.",
+        "kind": "topic",
+        "fact_ids": [],
+        "checks": [],
+        "fidelity": "claimed",
+        "source_refs": [ { "source_id": "s1", "span": { "kind": "doc", "section": "intro" } } ]
+      }
+    },
+    "edges": []
+  }
+}

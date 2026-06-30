@@ -1,0 +1,12 @@
+{
+  "schema": "bc.v1",
+  "manifest": {
+    "bc_id": "bc-broken-unknown",
+    "profile": "corpus",
+    "producer": { "name": "smoothie", "version": "0.1.0" },
+    "created_at": "2026-06-29T00:00:00Z",
+    "updated_at": "2026-06-29T00:00:00Z",
+    "counts": { "sources": 0, "facts": 0, "nodes": 0, "edges": 0, "views": 0, "outlines": 0 }
+  },
+  "bogus_top_level_field": { "smuggled": true }
+}

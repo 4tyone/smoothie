@@ -1,0 +1,433 @@
+{
+  "brief": {
+    "brief_id": "brief-main",
+    "created_at": "2026-01-01T00:00:00Z",
+    "goals": [
+      {
+        "done_when": "a past-due invoice is retried and marked paid",
+        "id": "dunning",
+        "text": "explain and operate the dunning (failed-payment) flow"
+      }
+    ],
+    "text": "Compile the billing area into a queryable, operable map for the dunning flow."
+  },
+  "cache": {
+    "hot": [],
+    "shadow": [],
+    "trending": []
+  },
+  "extensions": {
+    "com.smoothie.producer": {
+      "reader_kinds": [
+        "markdown"
+      ]
+    }
+  },
+  "facts": {
+    "src-billing-md-s0-f0": {
+      "brief_id": "brief-main",
+      "confidence": 0.7,
+      "fact_id": "src-billing-md-s0-f0",
+      "fidelity": "claimed",
+      "kind": "knowledge",
+      "source_refs": [
+        {
+          "source_id": "src-billing-md",
+          "span": {
+            "kind": "doc",
+            "section": "Billing overview"
+          }
+        }
+      ],
+      "text": "Billing overview The billing area lists invoices and their payment statuses."
+    },
+    "src-billing-md-s1-f0": {
+      "brief_id": "brief-main",
+      "confidence": 0.7,
+      "fact_id": "src-billing-md-s1-f0",
+      "fidelity": "claimed",
+      "kind": "knowledge",
+      "source_refs": [
+        {
+          "source_id": "src-billing-md",
+          "span": {
+            "kind": "doc",
+            "section": "Retry a past-due invoice"
+          }
+        }
+      ],
+      "text": "Retry a past-due invoice To retry a failed payment, click the Retry button next to the past-due invoice."
+    },
+    "src-billing-md-s1-f1": {
+      "action_draft": {
+        "expected_effect": "advances the flow",
+        "target": "Retry a past-due invoice To retry a failed payment, click th",
+        "verb": "click"
+      },
+      "brief_id": "brief-main",
+      "confidence": 0.6,
+      "fact_id": "src-billing-md-s1-f1",
+      "fidelity": "claimed",
+      "kind": "action",
+      "source_refs": [
+        {
+          "source_id": "src-billing-md",
+          "span": {
+            "kind": "doc",
+            "section": "Retry a past-due invoice"
+          }
+        }
+      ],
+      "text": "Retry a past-due invoice To retry a failed payment, click the Retry button next to the past-due invoice."
+    },
+    "src-billing-md-s2-f0": {
+      "brief_id": "brief-main",
+      "confidence": 0.7,
+      "fact_id": "src-billing-md-s2-f0",
+      "fidelity": "claimed",
+      "kind": "knowledge",
+      "source_refs": [
+        {
+          "source_id": "src-billing-md",
+          "span": {
+            "kind": "doc",
+            "section": "Sign in"
+          }
+        }
+      ],
+      "text": "Sign in Go to the login page and enter your account credentials to access billing."
+    },
+    "src-billing-md-s2-f1": {
+      "action_draft": {
+        "expected_effect": "advances the flow",
+        "target": "Sign in Go to the login page and enter your account credenti",
+        "verb": "goto"
+      },
+      "brief_id": "brief-main",
+      "confidence": 0.6,
+      "fact_id": "src-billing-md-s2-f1",
+      "fidelity": "claimed",
+      "kind": "action",
+      "source_refs": [
+        {
+          "source_id": "src-billing-md",
+          "span": {
+            "kind": "doc",
+            "section": "Sign in"
+          }
+        }
+      ],
+      "text": "Sign in Go to the login page and enter your account credentials to access billing."
+    }
+  },
+  "glossary": {
+    "dunning": {
+      "definition": "the automated retry/notification sequence for failed payments"
+    }
+  },
+  "graph": {
+    "edges": [
+      {
+        "fidelity": "claimed",
+        "from": "n-src-billing-md-s0-f0",
+        "kind": "next",
+        "source_refs": [
+          {
+            "source_id": "src-billing-md",
+            "span": {
+              "kind": "doc",
+              "section": "Billing overview"
+            }
+          }
+        ],
+        "to": "n-src-billing-md-s1-f0"
+      },
+      {
+        "fidelity": "claimed",
+        "from": "n-src-billing-md-s1-f0",
+        "kind": "next",
+        "source_refs": [
+          {
+            "source_id": "src-billing-md",
+            "span": {
+              "kind": "doc",
+              "section": "Retry a past-due invoice"
+            }
+          }
+        ],
+        "to": "n-src-billing-md-s1-f1"
+      },
+      {
+        "fidelity": "claimed",
+        "from": "n-src-billing-md-s1-f1",
+        "kind": "next",
+        "source_refs": [
+          {
+            "source_id": "src-billing-md",
+            "span": {
+              "kind": "doc",
+              "section": "Retry a past-due invoice"
+            }
+          }
+        ],
+        "to": "n-src-billing-md-s2-f0"
+      },
+      {
+        "fidelity": "claimed",
+        "from": "n-src-billing-md-s2-f0",
+        "kind": "next",
+        "source_refs": [
+          {
+            "source_id": "src-billing-md",
+            "span": {
+              "kind": "doc",
+              "section": "Sign in"
+            }
+          }
+        ],
+        "to": "n-src-billing-md-s2-f1"
+      }
+    ],
+    "nodes": {
+      "n-src-billing-md-s0-f0": {
+        "checks": [],
+        "fact_ids": [
+          "src-billing-md-s0-f0"
+        ],
+        "fidelity": "claimed",
+        "id": "n-src-billing-md-s0-f0",
+        "kind": "feature",
+        "source_refs": [
+          {
+            "source_id": "src-billing-md",
+            "span": {
+              "kind": "doc",
+              "section": "Billing overview"
+            }
+          }
+        ],
+        "summary": "Billing overview The billing area lists invoices and their payment statuses.",
+        "title": "Billing overview The billing area lists invoices and their p",
+        "view_id": "v-src-billing-md",
+        "notice": "Example warning \u2014 verify before relying on this."
+      },
+      "n-src-billing-md-s1-f0": {
+        "checks": [],
+        "fact_ids": [
+          "src-billing-md-s1-f0"
+        ],
+        "fidelity": "claimed",
+        "id": "n-src-billing-md-s1-f0",
+        "kind": "feature",
+        "source_refs": [
+          {
+            "source_id": "src-billing-md",
+            "span": {
+              "kind": "doc",
+              "section": "Retry a past-due invoice"
+            }
+          }
+        ],
+        "summary": "Retry a past-due invoice To retry a failed payment, click the Retry button next to the past-due invoice.",
+        "title": "Retry a past-due invoice To retry a failed payment, click th",
+        "view_id": "v-src-billing-md",
+        "restricted": true
+      },
+      "n-src-billing-md-s1-f1": {
+        "action": {
+          "kind": "click",
+          "locator": {
+            "description": "Retry a past-due invoice To retry a failed payment, click th",
+            "fallbacks": [],
+            "primary": {
+              "by": "text",
+              "value": "Retry a past-due invoice To retry a fail"
+            }
+          }
+        },
+        "checks": [
+          {
+            "expected": "https://app.example.com",
+            "kind": "url_matches"
+          }
+        ],
+        "fact_ids": [
+          "src-billing-md-s1-f1"
+        ],
+        "fidelity": "claimed",
+        "id": "n-src-billing-md-s1-f1",
+        "kind": "action",
+        "source_refs": [
+          {
+            "source_id": "src-billing-md",
+            "span": {
+              "kind": "doc",
+              "section": "Retry a past-due invoice"
+            }
+          }
+        ],
+        "summary": "Retry a past-due invoice To retry a failed payment, click the Retry button next to the past-due invoice.",
+        "title": "Retry a past-due invoice To retry a failed payment, click th",
+        "view_id": "v-src-billing-md"
+      },
+      "n-src-billing-md-s2-f0": {
+        "checks": [],
+        "fact_ids": [
+          "src-billing-md-s2-f0"
+        ],
+        "fidelity": "claimed",
+        "id": "n-src-billing-md-s2-f0",
+        "kind": "feature",
+        "source_refs": [
+          {
+            "source_id": "src-billing-md",
+            "span": {
+              "kind": "doc",
+              "section": "Sign in"
+            }
+          }
+        ],
+        "summary": "Sign in Go to the login page and enter your account credentials to access billing.",
+        "title": "Sign in Go to the login page and enter your account credenti",
+        "view_id": "v-src-billing-md"
+      },
+      "n-src-billing-md-s2-f1": {
+        "action": {
+          "kind": "goto",
+          "url": "https://app.example.com"
+        },
+        "checks": [
+          {
+            "expected": "https://app.example.com",
+            "kind": "url_matches"
+          }
+        ],
+        "fact_ids": [
+          "src-billing-md-s2-f1"
+        ],
+        "fidelity": "claimed",
+        "id": "n-src-billing-md-s2-f1",
+        "kind": "action",
+        "source_refs": [
+          {
+            "source_id": "src-billing-md",
+            "span": {
+              "kind": "doc",
+              "section": "Sign in"
+            }
+          }
+        ],
+        "summary": "Sign in Go to the login page and enter your account credentials to access billing.",
+        "title": "Sign in Go to the login page and enter your account credenti",
+        "view_id": "v-src-billing-md"
+      }
+    },
+    "roots": [
+      "n-src-billing-md-s0-f0"
+    ]
+  },
+  "manifest": {
+    "app": {
+      "allowed_origins": [
+        "https://app.example.com"
+      ],
+      "base_url": "https://app.example.com",
+      "name": "Example Billing"
+    },
+    "authorship": {
+      "author": "Mels",
+      "organization": "4tyone"
+    },
+    "bc_id": "bc-8dedd7615982",
+    "counts": {
+      "edges": 4,
+      "facts": 5,
+      "nodes": 5,
+      "outlines": 1,
+      "sources": 1,
+      "views": 1
+    },
+    "created_at": "2026-01-01T00:00:00Z",
+    "producer": {
+      "name": "smoothie",
+      "version": "0.1.0"
+    },
+    "profile": "web-app",
+    "updated_at": "2026-01-01T00:00:00Z"
+  },
+  "notes": {},
+  "outlines": {
+    "o-dunning": {
+      "brief_id": "brief-main",
+      "fidelity": "claimed",
+      "outline_id": "o-dunning",
+      "scenes": [
+        {
+          "done_when": "a past-due invoice is retried and marked paid",
+          "fidelity": "claimed",
+          "node_ids": [
+            "n-src-billing-md-s0-f0",
+            "n-src-billing-md-s1-f0",
+            "n-src-billing-md-s1-f1",
+            "n-src-billing-md-s2-f0",
+            "n-src-billing-md-s2-f1"
+          ],
+          "scene_id": "s-dunning",
+          "title": "explain and operate the dunning (failed-payment) flow"
+        }
+      ],
+      "title": "explain and operate the dunning (failed-payment) flow"
+    }
+  },
+  "policy": {
+    "actions": {
+      "allow_form_submit": true,
+      "allow_irreversible": false,
+      "allow_rules": [],
+      "blocklist_verbs": [],
+      "danger": []
+    },
+    "approval": {
+      "handler": "interactive",
+      "require_for": "irreversible"
+    },
+    "scope": {
+      "allowed_origins": [
+        "https://app.example.com"
+      ],
+      "same_origin_only": true,
+      "url_denylist": []
+    },
+    "secrets": {
+      "redact_patterns": []
+    }
+  },
+  "schema": "bc.v1",
+  "sources": {
+    "src-billing-md": {
+      "companions": [],
+      "hash": "sha256:37c2d5b2424d38ed",
+      "kind": "markdown",
+      "path": "billing.md",
+      "source_id": "src-billing-md"
+    }
+  },
+  "views": {
+    "v-src-billing-md": {
+      "fidelity": "claimed",
+      "node_ids": [
+        "n-src-billing-md-s0-f0",
+        "n-src-billing-md-s1-f0",
+        "n-src-billing-md-s1-f1",
+        "n-src-billing-md-s2-f0",
+        "n-src-billing-md-s2-f1"
+      ],
+      "observations": [],
+      "title": "src-billing-md",
+      "url_patterns": [
+        "https://app.example.com"
+      ],
+      "view_id": "v-src-billing-md"
+    }
+  }
+}
