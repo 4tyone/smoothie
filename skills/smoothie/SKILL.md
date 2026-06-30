@@ -1,12 +1,12 @@
 ---
 name: smoothie
-description: Compiles a folder of mixed-modality data (PDFs, spreadsheets, docs, HTML, JSON, notebooks, images, video, audio) into one grounded, provenance-tracked Behavior Cartridge (.smoothie/bc.json) with the `smoothie` CLI. Use when the user wants to ingest/compile/build a knowledge base or BC from local files, author or tune smoothie_config.yaml, pick a model or per-stage thinking budget, run the producer pipeline, or add new sources incrementally.
+description: Compiles a folder of mixed-modality data (PDFs, spreadsheets, docs, HTML, JSON, notebooks, images, video, audio) into one grounded, provenance-tracked bytecode / BC (.smoothie/bc.json) with the `smoothie` CLI. Use when the user wants to ingest/compile/build a knowledge base or BC from local files, author or tune smoothie_config.yaml, pick a model or per-stage thinking budget, run the producer pipeline, or add new sources incrementally.
 ---
 
 # Smoothie — the multimodal data compiler (producer)
 
 Smoothie compiles a folder of messy, mixed-modality data into one queryable,
-receipted **Behavior Cartridge** (`bc.v1` JSON). It is the **producer**; the
+receipted **bytecode** (the BC; `bc.v1` JSON). It is the **producer**; the
 bundled **`svm`** binary is the **consumer** (see the `svm` skill).
 
 The pipeline is `ingest → describe → structure → link → resolve → compile`. **Code
@@ -69,7 +69,7 @@ Full schema + the `web-app` profile + `scope`/`verify`/`policy` blocks:
 
 ```
 <folder>/.smoothie/
-  bc.json            # the Behavior Cartridge (the deliverable; git-committed)
+  bc.json            # the bytecode / BC (the deliverable; git-committed)
   telemetry.json     # per-stage counts (reconstructs the run)
   stages/            # every stage's output as a file (gitignored)
     1-ingest.json … 5-resolve.json

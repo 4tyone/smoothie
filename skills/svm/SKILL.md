@@ -1,11 +1,11 @@
 ---
 name: svm
-description: Consumes a Smoothie Behavior Cartridge (bc.v1 JSON) with the deterministic `svm` binary — query/traverse the grounded graph and follow receipts, validate provenance gates, version/rollback the BC, and (web-app profile) emit a guardrailed runnable slice. Use when answering questions from a bc.json, tracing dependencies, checking provenance, applying read restrictions, or emitting tests/skills from a BC. The SVM has no model; it is pure, deterministic, and safe-by-construction.
+description: Consumes a Smoothie bytecode / BC (bc.v1 JSON) with the deterministic `svm` binary — query/traverse the grounded graph and follow receipts, validate provenance gates, version/rollback the BC, and (web-app profile) emit a guardrailed runnable slice. Use when answering questions from a bc.json, tracing dependencies, checking provenance, applying read restrictions, or emitting tests/skills from a BC. The SVM has no model; it is pure, deterministic, and safe-by-construction.
 ---
 
 # SVM — the Smoothie Virtual Machine (consumer)
 
-The `svm` binary consumes a `bc.v1` Behavior Cartridge produced by Smoothie (the
+The `svm` binary consumes a `bc.v1` bytecode (the BC) produced by Smoothie (the
 `smoothie` skill). It is **deterministic and has no model**: every answer is a query
 over grounded data, and every claim traces to a **receipt** (`source_refs`). It is
 how an agent *uses* a BC — to answer questions, trace dependencies, and (web-app

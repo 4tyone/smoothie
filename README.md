@@ -4,11 +4,11 @@
 
 # Smoothie
 
-**Blend your scattered data into one grounded, queryable cartridge.**
+**Blend your scattered data into one grounded, queryable bytecode.**
 
 *A multimodal data compiler. Point it at a folder of messy files — PDFs, spreadsheets,
 docs, images, video, audio, code — and it compiles them into a single,
-provenance-tracked **Behavior Cartridge** your agents can query, traverse, and trust.*
+provenance-tracked **bytecode** (the BC) your agents can query, traverse, and trust.*
 
 ![SVM](https://img.shields.io/badge/SVM-Rust-orange?logo=rust&logoColor=white)
 ![Producer](https://img.shields.io/badge/Producer-TypeScript-3178c6?logo=typescript&logoColor=white)
@@ -23,8 +23,8 @@ provenance-tracked **Behavior Cartridge** your agents can query, traverse, and t
 ## Why Smoothie
 
 An organization's knowledge is scattered across documents, spreadsheets, recordings,
-and SaaS exports. Smoothie **compiles** all of it into one artifact — the **Behavior
-Cartridge** (`bc.v1`) — where every fact carries a **receipt** back to its source, and
+and SaaS exports. Smoothie **compiles** all of it into one artifact — the **bytecode**
+(`bc.v1`, the "BC") — where every fact carries a **receipt** back to its source, and
 a deterministic runtime serves it to your agents without a model in the loop.
 
 Two halves, one contract:
@@ -43,7 +43,7 @@ Two halves, one contract:
   glue. So a spreadsheet becomes an analytical schema, not a cell dump.
 - **One corpus, many questions** — extraction is cached; a new Brief reshapes the
   graph without re-reading a single file.
-- **Safe by design** — the cartridge is inert data; the SVM never executes what's
+- **Safe by design** — the bytecode is inert data; the SVM never executes what's
   inside it. Read restrictions and a deny-by-default execution floor are enforced in
   code, never from a prompt.
 
@@ -53,11 +53,11 @@ Smoothie treats your data the way a compiler treats source. Java doesn't re-pars
 `.java` files every time the program runs — **`javac` compiles them once into portable
 bytecode, and the JVM executes that bytecode** anywhere, deterministically, inside a
 sandbox. Smoothie is the same shape: the **Smoothie compiler** turns raw, scattered
-multimodal data into a portable **Behavior Cartridge** (`bc.v1` — the "bytecode"), and
+multimodal data into a portable **bytecode** (`bc.v1` — the "BC"), and
 the **SVM — the Smoothie *Virtual Machine*** — executes and serves it deterministically,
 behind a safety floor (the sandbox). `bc.v1` is the classfile format both sides agree on.
 
-That makes data **first-class, code-grade artifacts**: a cartridge is versioned,
+That makes data **first-class, code-grade artifacts**: the bytecode is versioned,
 diffable, roll-back-able, signable, and shippable — you compile understanding once and
 run it everywhere, instead of re-deriving it from scratch on every query.
 
@@ -119,7 +119,7 @@ smoothie login
 # 2 · drop a smoothie_config.yaml in your data folder (see below), then compile
 smoothie compile ./my-data            # → ./my-data/.smoothie/bc.json
 
-# 3 · consume the cartridge with the SVM (no model, fully deterministic)
+# 3 · consume the bytecode with the SVM (no model, fully deterministic)
 svm query nodes    --bc ./my-data/.smoothie/bc.json
 svm query node     <id> --bc ./my-data/.smoothie/bc.json   # facts + receipts
 svm query traverse <id> --bc ./my-data/.smoothie/bc.json --depth 2
@@ -148,7 +148,7 @@ stages:                               # optional; these are the defaults
   link:      { thinking: medium }     # cross-graph synthesis earns more
 ```
 
-## The Behavior Cartridge (`bc.v1`)
+## The bytecode (`bc.v1`)
 
 A single JSON document: a **graph** of `nodes` (topics / screens) and `edges` (typed
 relationships), grouped into `views`, threaded by Brief-shaped `outlines`, with a
@@ -176,7 +176,7 @@ svm emit test --outline <id> --bc <bc.json> --mode read-only   # web-app only
 
 ### Safety
 
-- **Inert data** — the SVM never executes anything embedded in a cartridge; an
+- **Inert data** — the SVM never executes anything embedded in the bytecode; an
   injection in a fact or `notice` is printed as data, never obeyed.
 - **Read restrictions** — a node may be `restricted` (content withheld unless
   `--reveal`) or carry a `notice` (a warning surfaced on every read), enforced in code.
@@ -199,7 +199,7 @@ Driving Smoothie from an agent? Load the bundled skills:
 
 - **`skills/smoothie/`** — compiling data, authoring `smoothie_config.yaml`, tuning
   stages, the reader model, incremental compiles.
-- **`skills/svm/`** — querying and traversing a cartridge, following receipts, the
+- **`skills/svm/`** — querying and traversing the bytecode, following receipts, the
   safety model, emit + versioning.
 
 ---

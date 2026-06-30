@@ -62,7 +62,7 @@ brief:
 version: smoothie.config.v1
 profile: web-app
 brief:
-  intent: Map the billing app's dunning flow into an operable cartridge.
+  intent: Map the billing app's dunning flow into an operable bytecode.
   goals:
     - { id: dunning, text: explain and operate the failed-payment retry, done_when: a past-due invoice is retried and marked paid }
   target: { base_url: https://app.example.com, allowed_origins: [https://app.example.com] }
