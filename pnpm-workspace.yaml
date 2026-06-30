@@ -1,0 +1,7 @@
+# TS half of the monorepo (ADR-0001). The producer-side artifacts:
+#   - schema/   — @smoothie/schema: the shared bc.v1 contract (the seam).
+#   - frontend/ — smoothie: the compiler frontend CLI; bundles the svm binary.
+# The Rust consumer (`svm`) is a separate Cargo workspace at the repo root.
+packages:
+  - schema
+  - frontend

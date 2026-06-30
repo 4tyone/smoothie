@@ -1,0 +1,8 @@
+# Smoothie monorepo — Rust workspace.
+# Per ADR-0001 / spec 01, this repo ships two independently-installable artifacts:
+#   - `svm`      (this workspace) — the Rust consumer runtime; standalone, zero heavy deps.
+#   - `smoothie` (frontend/)      — the TS authoring CLI on Flue; bundles `svm`. (Phase 2+)
+# The seam between them is `schema/bc.v1` (schema/), validated on write (TS) and on read (Rust).
+[workspace]
+members = ["svm"]
+resolver = "3"
