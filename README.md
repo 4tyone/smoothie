@@ -100,9 +100,7 @@ facts directly (`extract`) and skip the model entirely.
 
 So anyone can teach Smoothie a new input - a proprietary binary format, a queryable
 index, a live API, an S3 bucket - without touching the core or waiting on us. The
-abstraction is the interface; the ecosystem is the point. See
-[ADR-0003](docs/adr/0003-open-language-agnostic-processors.md) and
-[spec 10 · Processors](docs/specs/10-processors.md).
+abstraction is the interface; the ecosystem is the point.
 
 ## Install
 
@@ -171,6 +169,35 @@ stages:                               # optional; these are the defaults
   structure: { thinking: low }
   link:      { thinking: medium }     # cross-graph synthesis earns more
 ```
+
+### Custom input modalities
+
+`modalities` (optional) is the extensibility surface (see *Extend it* above): each
+binds a matcher to a processor in any language and an orchestration mode. Remote
+inputs are declared under `sources`. An unmatched extension falls back to a bundled
+processor, then `generic` - never silently skipped.
+
+```yaml
+modalities:
+  cad:                          # custom name; match by ext | glob | mime | uri
+    match: { ext: [dwg, dxf] }
+    orchestration: direct       # run the processor's `extract`; no model in the loop
+    processors:
+      - { name: read, run: './bin/cad-reader "$SMOOTHIE_SOURCE_PATH"' }   # any language
+
+  s3-exports:                   # a remote input, localized before processing
+    match: { uri: 's3://acme-exports/**' }
+    fetch: { run: 'aws s3 cp "$SMOOTHIE_SOURCE_URI" "$SMOOTHIE_WORKDIR/$SMOOTHIE_SOURCE_BASENAME"' }
+    processors:
+      - { name: analyze, run: 'node analyze.js "$SMOOTHIE_SOURCE_PATH"' }
+
+sources:                        # optional: explicit/remote inputs beyond folder-walking
+  - { uri: 's3://acme-exports/2026/**/*.csv', modality: s3-exports }
+```
+
+A processor may instead ship as a package (`path:` to a dir with a CLI + `SKILL.md`
++ `manifest.json`) that the agent drives. Either way it only produces the `fact`
+bundle (`smoothie.extraction.v1`); code materializes every receipt.
 
 ## The bytecode (`bc.v1`)
 

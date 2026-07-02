@@ -35,6 +35,7 @@ way a compiler refuses with no source.
 | `smoothie compile <folder> --deterministic` | Use the deterministic CI gateway (no model) — same input → byte-identical BC. For tests/plumbing, **not** real extraction. |
 | `smoothie compile <folder> --resolve[=name,...]` | Also run the verify stage (promote `claimed`→`confirmed`). Bare `--resolve` runs `re-examine,cross-source`; or name them. |
 | `smoothie skills install [folder]` | Copy the built-in per-modality reader skills into `<folder>/.smoothie/skills/` so you can customize them. |
+| `smoothie preprocess --check <folder>` | Dry-run processor resolution: show each source's modality, orchestration, skill, and commands (parses `path` package manifests). No model, no compile. |
 | `smoothie --version` | Print the targeted schema version. |
 
 ## smoothie_config.yaml (the required input)
@@ -62,7 +63,9 @@ stages:                             # optional; these ARE the defaults
   link:      { thinking: medium }   # cross-graph synthesis earns more
 ```
 
-Full schema + the `web-app` profile + `scope`/`verify`/`policy` blocks:
+Custom input modalities are declared in an optional top-level `modalities` block (and
+remote inputs in `sources`) - see below. Full schema + the `web-app` profile +
+`scope`/`verify`/`policy` + `modalities`/`sources` blocks:
 [references/config.md](references/config.md).
 
 ## Where output lands — `.smoothie/` is the unified home
@@ -83,13 +86,19 @@ Brief-independent, so re-compiling — or compiling the *same data with a differ
 Brief* — reuses the expensive extraction instead of re-reading every file. Delete a
 `stages/describe/<id>.json` (or change the source) to force re-extraction.
 
-## How extraction works (the agent-writes-Python reader)
+## How extraction works (open, language-agnostic processors)
 
-`describe` is not a fixed set of parsers. For each source the model runs as a
-**tool-calling agent** that **writes and runs Python** (pdfplumber, pandas, PyMuPDF,
-…) in `.smoothie/work/<source>/`, guided by a **per-modality skill**. It cites a
-`locator` per fact, which **code** turns into a provenance span. Modalities and how
-to customize a reader skill: [references/readers.md](references/readers.md).
+`describe` is not a fixed set of parsers. Each source is matched to a **modality**
+(config-declared and custom-named, or built-in) backed by a **processor** - any
+executable in any language. By default the model runs as a **tool-calling agent**
+that drives the processor's commands in `.smoothie/work/<source>/`, guided by a
+per-modality **skill**, and cites a `locator` per fact which **code** turns into a
+provenance span. A `direct` modality instead runs the processor's `extract` command
+(which prints a `smoothie.extraction.v1` fact bundle) with no model in the loop. The
+bundled Python toolkit is just the built-in processor set, with no privileged path.
+Custom modalities, the processor contract, and the descriptor env:
+[references/readers.md](references/readers.md) and
+[references/config.md](references/config.md).
 
 ## What each stage does, caching, and incrementality
 
