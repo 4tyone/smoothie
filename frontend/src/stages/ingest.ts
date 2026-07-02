@@ -8,14 +8,15 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
 import { loadConfig, fanOut, CONFIG_FILENAME, type BriefFanOut } from "../config.ts";
-import { classifyModality } from "../readers/index.ts";
+import { resolveModality } from "../processors/resolve.ts";
 
 export interface IngestedSource {
   source_id: string;
-  kind: string; // modality tag (drives the describe skill)
-  path: string; // absolute
-  relPath: string; // relative to the corpus folder
+  kind: string; // modality tag (drives processor resolution)
+  path: string; // absolute local path ("" for a not-yet-fetched remote source)
+  relPath: string; // relative to the corpus folder (or the URI, for remote sources)
   hash: string;
+  uri?: string; // set for remote / explicit sources (spec 10); localized via `fetch`
 }
 
 export interface IngestResult {
@@ -27,6 +28,11 @@ export interface IngestResult {
 
 function sha256(file: string): string {
   return "sha256:" + crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex").slice(0, 16);
+}
+
+/** Hash a string (a remote source's URI stands in for its content in v1). */
+function sha256str(s: string): string {
+  return "sha256:" + crypto.createHash("sha256").update(s).digest("hex").slice(0, 16);
 }
 
 /** Walk a folder (one level + immediate subdirs), classifying each file. */
@@ -73,14 +79,19 @@ export function ingest(folder: string): IngestResult {
   for (const file of listFiles(folder)) {
     const rel = path.relative(folder, file);
     if (ignored(rel)) continue; // smoothie_config.yaml, .smoothie/, and .smoothieignore patterns
-    const kind = classifyModality(file);
-    if (!kind) {
-      skipped.push(rel);
-      continue;
-    }
+    // Config modalities (first match) → built-in extension map → `generic` (spec 10):
+    // an unknown extension routes to `generic` instead of being silently skipped.
+    const kind = resolveModality({ relPath: rel }, fan.modalities);
     // Stable, content-independent source_id so re-runs match (spec 03 determinism).
     const source_id = "src-" + rel.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase();
     sources.push({ source_id, kind, path: file, relPath: rel, hash: sha256(file) });
+  }
+
+  // Remote / explicit source declarations (spec 10): registered alongside files and
+  // localized by their modality's `fetch` step at describe time.
+  for (const decl of fan.sourceDecls) {
+    const source_id = "src-" + decl.uri.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase();
+    sources.push({ source_id, kind: decl.modality, path: "", relPath: decl.uri, hash: sha256str(decl.uri), uri: decl.uri });
   }
 
   // Deterministic ordering by source_id.

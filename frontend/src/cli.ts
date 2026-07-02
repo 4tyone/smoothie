@@ -97,6 +97,38 @@ async function cmdSkills(argv: string[]): Promise<number> {
   return sub ? 2 : 0;
 }
 
+/** `smoothie preprocess --check <folder>` — a dry-run of processor resolution: for
+ *  each source, show the modality it matched, the processor's orchestration, its
+ *  skill, and its commands. Parses each `path` package's manifest (throws if absent),
+ *  so it surfaces misconfigured modalities before a full compile (spec 10). */
+async function cmdPreprocess(argv: string[]): Promise<number> {
+  const folder = argv.find((a) => !a.startsWith("--"));
+  if (!folder) {
+    console.error("usage: smoothie preprocess --check <folder>");
+    return 2;
+  }
+  const abs = path.resolve(folder);
+  const { ingest } = await import("./stages/ingest.ts");
+  const { resolveProcessor } = await import("./processors/resolve.ts");
+  const ing = ingest(abs);
+  const bcDir = path.join(abs, ".smoothie");
+  let bad = 0;
+  for (const src of ing.sources) {
+    try {
+      const proc = resolveProcessor(src.kind, { folder: abs, modalities: ing.fanOut.modalities }, bcDir);
+      const cmds = proc.commands.map((c) => c.name).join(", ") || "(none — agent uses run_python)";
+      console.error(
+        `• ${src.relPath}\n    modality=${src.kind}  orchestration=${proc.orchestration}  skill=${proc.skill.name}\n    commands: ${cmds}`,
+      );
+    } catch (e) {
+      bad++;
+      console.error(`✗ ${src.relPath} (modality ${src.kind}): ${(e as Error).message}`);
+    }
+  }
+  console.error(bad ? `\n✗ ${bad} source(s) failed to resolve a processor.` : `\n✓ all ${ing.sources.length} source(s) resolve a processor.`);
+  return bad ? 1 : 0;
+}
+
 async function cmdCompile(argv: string[]): Promise<number> {
   const deterministic = argv.includes("--deterministic");
   const folder = argv.find((a) => !a.startsWith("--"));
@@ -129,11 +161,13 @@ async function main(argv: string[]): Promise<number> {
   }
   if (cmd === "login") return cmdLogin(argv.slice(3));
   if (cmd === "skills") return cmdSkills(argv.slice(3));
+  if (cmd === "preprocess") return cmdPreprocess(argv.slice(3));
   if (cmd === "compile") return cmdCompile(argv.slice(3));
   console.error(
     "smoothie — the multimodal data compiler frontend.\n" +
       "  smoothie login                               sign in with your ChatGPT subscription (once)\n" +
       "  smoothie compile <folder> [--deterministic]  ingest→describe→structure→compile → bc.json\n" +
+      "  smoothie preprocess --check <folder>         dry-run: show each source's resolved processor\n" +
       "  smoothie skills install [folder]             copy built-in reader skills to .smoothie/skills/\n" +
       "  (the bundled `svm` consumes the BC: `svm query`, `svm emit`)",
   );

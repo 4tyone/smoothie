@@ -50,6 +50,9 @@ export const Fact = v.object({
   view_id: v.optional(v.string()),
   fidelity: Fidelity,
   locator: v.optional(v.string()),
+  /** Structured form of the citation (spec 10). Code prefers this over `locator`
+   *  when materializing the provenance span; A/V processors emit `time` here. */
+  span: v.optional(SourceSpan),
   action_draft: v.optional(ActionDraft),
 });
 export type Fact = v.InferOutput<typeof Fact>;
@@ -59,6 +62,19 @@ export const DescribeResult = v.object({
   facts: v.array(Fact),
 });
 export type DescribeResult = v.InferOutput<typeof DescribeResult>;
+
+/** `smoothie.extraction.v1` — the processor output contract (spec 10). A processor
+ *  running in `direct`/`extract` mode prints this to stdout; code validates it, then
+ *  materializes provenance (`fact_id`/`source_refs`/`brief_id`) so a processor can
+ *  never forge a receipt. Mirrors `schema/extraction.v1.schema.json`. */
+export const ExtractionCompanion = v.object({ kind: v.string(), path: v.string() });
+export const ExtractionEnvelope = v.object({
+  envelope: v.literal("smoothie.extraction.v1"),
+  facts: v.array(Fact),
+  companions: v.optional(v.array(ExtractionCompanion)),
+  diagnostics: v.optional(v.array(v.string())),
+});
+export type ExtractionEnvelope = v.InferOutput<typeof ExtractionEnvelope>;
 
 // ── structure: the local object (nodes/views/edges/outlines) ──
 

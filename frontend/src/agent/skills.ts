@@ -31,6 +31,13 @@ function splitFrontmatter(md: string): { frontmatter: string; body: string } {
   return m ? { frontmatter: m[1], body: m[2].trim() } : { frontmatter: "", body: md.trim() };
 }
 
+/** Load a skill from an explicit directory (a processor package, or a `skill:`
+ *  override path). Returns null if the dir has no `SKILL.md`. Exported for the
+ *  processor resolver's skill precedence (spec 10). */
+export function loadSkillFromDir(dir: string): ReaderSkill | null {
+  return readSkillDir(dir);
+}
+
 function readSkillDir(dir: string): ReaderSkill | null {
   const skillPath = path.join(dir, "SKILL.md");
   if (!fs.existsSync(skillPath)) return null;
