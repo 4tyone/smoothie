@@ -12,6 +12,8 @@ Top level has `version`, `profile`, `brief`, and optional `model` + `stages`.
 | `brief` | yes | The Brief (below). |
 | `model` | no | `{ default: "<provider/modelId>" }`. Omit to use your authenticated default. |
 | `stages` | no | Per-stage `{ model?, thinking? }` (below). |
+| `modalities` | no | Custom, named input modalities (spec 10). Keyed by custom name → `{ match, orchestration?, skill?, fetch?, processors[] }` (below). |
+| `sources` | no | Remote / explicit inputs beyond folder-walking: `[{ uri, modality }]` (below). |
 
 ## `brief`
 
@@ -43,6 +45,49 @@ stages:
 - A stage's `model` overrides `model.default` for that stage only.
 - Only `describe`, `structure`, `link` call the model; ingest/resolve/compile are
   code. `resolve`'s offline resolvers are deterministic.
+
+## `modalities` and `sources` (custom input modalities, spec 10)
+
+Pre-processing is open: a **modality** is user-defined and custom-named, and a
+**processor** is any executable in any language. Smoothie owns only the `fact`
+contract and the trust floor (code materializes every receipt); everything else is
+declared here. Omit `modalities` entirely to use only the bundled processors.
+
+Each `modalities.<name>` entry:
+
+| Key | Required | Notes |
+|---|---|---|
+| `match` | yes | How sources match this modality: `{ ext?: [..], glob?: [..], mime?: [..], uri?: str \| [..] }`. Resolution order: config modalities (first match) → built-in extension map → `generic` (never silently skipped). |
+| `orchestration` | no | `agent` (default) — the describe agent drives the processor's commands, guided by its skill; or `direct` — run the processor's `extract` command with no model. |
+| `processors` | yes (≥1) | Each: `{ name, run? , path?, params? }`. `run` is an inline shell template; `path` points at a package dir (CLI + `SKILL.md` + `manifest.json`). `params` (`{ <name>: { type?, default?, description? } }`) are exposed to the command as `$<name>` and `SMOOTHIE_PARAM_<NAME>`. |
+| `skill` | no | Path to a `SKILL.md` override. Skill precedence: processor-bundled → this override → project `.smoothie/skills/<modality>/` → bundled → `generic`. |
+| `fetch` | no | `{ run: "<shell>" }` — localizes a remote source into `$SMOOTHIE_WORKDIR` before processing. |
+
+A processor is invoked with the **source descriptor** in its environment:
+`SMOOTHIE_SOURCE_PATH`, `SMOOTHIE_SOURCE_URI`, `SMOOTHIE_SOURCE_ID`,
+`SMOOTHIE_SOURCE_BASENAME`, `SMOOTHIE_MODALITY`, `SMOOTHIE_WORKDIR`,
+`SMOOTHIE_TOOLKIT`, `SMOOTHIE_PROCESSOR_DIR` (for `path` packages), `SMOOTHIE_PARAMS`,
+and `SMOOTHIE_BRIEF`. A `direct`/`extract` command prints one `smoothie.extraction.v1`
+fact bundle to stdout; validate with `smoothie preprocess --check <folder>`.
+
+`sources` (optional) declares explicit/remote inputs beyond folder-walking:
+`[{ uri, modality }]`. The named modality's `fetch` localizes each one.
+
+```yaml
+modalities:
+  cad:
+    match: { ext: [dwg, dxf] }
+    orchestration: direct                 # no model; take the processor's facts
+    processors:
+      - { name: read, run: './bin/cad-reader "$SMOOTHIE_SOURCE_PATH"' }   # any language
+  s3-exports:
+    match: { uri: 's3://acme-exports/**' }
+    fetch: { run: 'aws s3 cp "$SMOOTHIE_SOURCE_URI" "$SMOOTHIE_WORKDIR/$SMOOTHIE_SOURCE_BASENAME"' }
+    processors:
+      - { name: analyze, run: 'node analyze.js "$SMOOTHIE_SOURCE_PATH"' }
+sources:
+  - { uri: 's3://acme-exports/2026/**/*.csv', modality: s3-exports }
+```
 
 ## Two worked examples
 
