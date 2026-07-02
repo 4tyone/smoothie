@@ -70,8 +70,11 @@ export async function runCompile(folder: string, opts: CompileOptions): Promise<
   // applied): describe `minimal`, structure `low`, link `medium`.
   const stages = ing.fanOut.stages;
 
-  // 2 · describe (new sources → facts; provenance attached by code; cached per source)
-  const { facts: newFacts, companions } = await describe(newSources, opts.gateway, bcDir, briefId, stages.describe);
+  // 2 · describe (new sources → facts; provenance attached by code; cached per source).
+  // The describe context carries how to resolve processors (config modalities +
+  // corpus folder) and the Brief, for modalities/processors that opt into it (spec 10).
+  const describeCtx = { folder, modalities: ing.fanOut.modalities, briefJson: JSON.stringify(ing.fanOut.brief) };
+  const { facts: newFacts, companions } = await describe(newSources, opts.gateway, bcDir, briefId, stages.describe, describeCtx);
   tel.stage("describe", { facts: newFacts.length }, [`model: ${opts.gateway.kind}`]);
   writeStage("2-describe", { facts: newFacts });
 

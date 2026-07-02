@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://smoothie.dev/schema/smoothie.extraction.v1.json",
+  "title": "smoothie.extraction.v1",
+  "description": "Processor output contract: the fact bundle a processor prints to stdout (direct/extract mode) or the describe agent produces. Code owns fact_id, source_refs, and brief_id; they must NOT appear here.",
+  "type": "object",
+  "required": ["envelope", "facts"],
+  "additionalProperties": false,
+  "properties": {
+    "envelope": { "const": "smoothie.extraction.v1" },
+    "facts": { "type": "array", "items": { "$ref": "#/definitions/fact" } },
+    "companions": { "type": "array", "items": { "$ref": "#/definitions/companion" } },
+    "diagnostics": { "type": "array", "items": { "type": "string" } }
+  },
+  "definitions": {
+    "fact": {
+      "type": "object",
+      "required": ["kind", "text", "confidence", "fidelity"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["knowledge", "action"] },
+        "text": { "type": "string", "minLength": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "fidelity": { "enum": ["claimed", "guessed"] },
+        "locator": { "type": "string" },
+        "span": { "$ref": "#/definitions/span" },
+        "view_id": { "type": "string" },
+        "action_draft": { "$ref": "#/definitions/actionDraft" }
+      }
+    },
+    "span": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "t_start", "t_end"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "time" },
+            "t_start": { "type": "number" },
+            "t_end": { "type": "number" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "doc" },
+            "page": { "type": "number" },
+            "section": { "type": "string" },
+            "lines": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+            "label": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "actionDraft": {
+      "type": "object",
+      "required": ["verb", "target"],
+      "additionalProperties": false,
+      "properties": {
+        "verb": { "enum": ["goto", "click", "fill", "select", "press", "scroll", "wait_for", "unknown"] },
+        "target": { "type": "string" },
+        "value_hint": { "type": "string" },
+        "locator_hint": { "type": "string" },
+        "expected_effect": { "type": "string" }
+      }
+    },
+    "companion": {
+      "type": "object",
+      "required": ["kind", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["transcript", "frame", "screenshot", "dom", "ax", "audio", "other"] },
+        "path": { "type": "string" }
+      }
+    }
+  }
+}

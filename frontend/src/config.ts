@@ -73,6 +73,46 @@ const BriefSection = v.object({
   })),
 });
 
+/** A processor's tunable param (spec 10). The orchestrator sets these per call. */
+const ProcessorParam = v.object({
+  type: v.optional(v.string()),
+  default: v.optional(v.unknown()),
+  description: v.optional(v.string()),
+});
+
+/** One processor within a modality (spec 10): either an inline `run` command
+ *  template, or a `path` to a package dir (CLI + `SKILL.md` + manifest). */
+const ProcessorConfig = v.object({
+  name: v.string(),
+  run: v.optional(v.string()),
+  path: v.optional(v.string()),
+  params: v.optional(v.record(v.string(), ProcessorParam)),
+});
+export type ProcessorConfig = v.InferOutput<typeof ProcessorConfig>;
+
+/** How a source is matched to a modality: extension, glob, MIME, or remote URI. */
+const ModalityMatch = v.object({
+  ext: v.optional(v.array(v.string())),
+  glob: v.optional(v.array(v.string())),
+  mime: v.optional(v.array(v.string())),
+  uri: v.optional(v.union([v.string(), v.array(v.string())])),
+});
+
+/** A user-defined, custom-named modality (spec 10) — a matcher bound to
+ *  processor(s), an optional bundled-skill override, and an optional remote fetch. */
+const ModalityConfig = v.object({
+  match: v.optional(ModalityMatch),
+  orchestration: v.optional(v.picklist(["agent", "direct"])),
+  skill: v.optional(v.string()),
+  fetch: v.optional(v.object({ run: v.string() })),
+  processors: v.pipe(v.array(ProcessorConfig), v.minLength(1)),
+});
+export type ModalityConfig = v.InferOutput<typeof ModalityConfig>;
+
+/** A remote / explicit source declaration beyond folder-walking (spec 10). */
+const SourceDecl = v.object({ uri: v.string(), modality: v.string() });
+export type SourceDecl = v.InferOutput<typeof SourceDecl>;
+
 /** The `smoothie_config.yaml` schema (`smoothie.config.v1`). Mirrors the bc.vN
  *  versioning discipline: a breaking change bumps the version in lockstep. */
 export const SmoothieConfig = v.object({
@@ -87,6 +127,10 @@ export const SmoothieConfig = v.object({
     structure: v.optional(StageConfig),
     link: v.optional(StageConfig),
   })),
+  /** Custom, config-declared modalities (spec 10). Keyed by custom name. */
+  modalities: v.optional(v.record(v.string(), ModalityConfig)),
+  /** Remote / explicit sources beyond folder-walking (spec 10). */
+  sources: v.optional(v.array(SourceDecl)),
 });
 export type SmoothieConfig = v.InferOutput<typeof SmoothieConfig>;
 export type BriefFile = SmoothieConfig; // back-compat alias for existing imports
@@ -161,6 +205,10 @@ export interface BriefFanOut {
   resolvers: string[];
   /** Resolved model + thinking budget per stage. */
   stages: ResolvedStages;
+  /** Config-declared custom modalities (spec 10); empty → built-ins only. */
+  modalities: Record<string, ModalityConfig>;
+  /** Remote / explicit source declarations (spec 10); empty → folder-walk only. */
+  sourceDecls: SourceDecl[];
 }
 
 export function fanOut(config: SmoothieConfig, createdAt: string): BriefFanOut {
@@ -185,5 +233,7 @@ export function fanOut(config: SmoothieConfig, createdAt: string): BriefFanOut {
     policySeed: { danger: b.policy?.danger ?? [], budget: b.policy?.budget },
     resolvers: b.verify?.resolve === false ? [] : (b.verify?.resolvers ?? []),
     stages: resolveStages(config),
+    modalities: config.modalities ?? {},
+    sourceDecls: config.sources ?? [],
   };
 }

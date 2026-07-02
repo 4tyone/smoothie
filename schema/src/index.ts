@@ -5,8 +5,13 @@
 // and validates on read (spec 07 · the bc.v1 schema as single source of truth).
 
 export * from "./bc.v1.js";
+export * from "./extraction.v1.js";
 
 // The canonical JSON Schema, re-exported so the frontend can validate on write
 // with the same artifact the Rust side mirrors. (Resolved relative to the
 // package root at runtime; bundlers should copy bc.v1.schema.json alongside.)
 export const BC_V1_SCHEMA_PATH = "bc.v1.schema.json";
+
+// The processor output contract (spec 10). External processors in any language can
+// validate their stdout against this artifact.
+export const EXTRACTION_V1_SCHEMA_PATH = "extraction.v1.schema.json";

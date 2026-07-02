@@ -6,8 +6,8 @@
 
 **Blend your scattered data into one grounded, queryable bytecode.**
 
-*A multimodal data compiler. Point it at a folder of messy files — PDFs, spreadsheets,
-docs, images, video, audio, code — and it compiles them into a single,
+*A multimodal data compiler. Point it at a folder of messy files - PDFs, spreadsheets,
+docs, images, video, audio, code - and it compiles them into a single,
 provenance-tracked **bytecode** (the BC) your agents can query, traverse, and trust.*
 
 ![SVM](https://img.shields.io/badge/SVM-Rust-orange?logo=rust&logoColor=white)
@@ -23,8 +23,8 @@ provenance-tracked **bytecode** (the BC) your agents can query, traverse, and tr
 ## Why Smoothie
 
 An organization's knowledge is scattered across documents, spreadsheets, recordings,
-and SaaS exports. Smoothie **compiles** all of it into one artifact — the **bytecode**
-(`bc.v1`, the "BC") — where every fact carries a **receipt** back to its source, and
+and SaaS exports. Smoothie **compiles** all of it into one artifact - the **bytecode**
+(`bc.v1`, the "BC") - where every fact carries a **receipt** back to its source, and
 a deterministic runtime serves it to your agents without a model in the loop.
 
 Two halves, one contract:
@@ -34,31 +34,32 @@ Two halves, one contract:
                   ingest→describe→structure→link→resolve→compile      the bc.v1 contract        query · traverse · emit
 ```
 
-- **Grounded by construction** — code attaches a provenance span to every node and
+- **Grounded by construction** - code attaches a provenance span to every node and
   edge. The model proposes; code materializes the receipt. Nothing is trusted on the
   model's word.
-- **The model orchestrates a data-engineering toolkit** — `describe` runs as a
-  tool-calling agent that drives pre-built, per-modality Python scripts (transcribe a
-  video, profile a spreadsheet, OCR a PDF) and writes code only for the data-specific
-  glue. So a spreadsheet becomes an analytical schema, not a cell dump.
-- **One corpus, many questions** — extraction is cached; a new Brief reshapes the
+- **The model orchestrates open, per-modality processors** - `describe` runs as a
+  tool-calling agent that drives **processors** (self-contained navigation tools, in
+  any language) to explore each source, then authors receipted facts against your
+  Brief. So a spreadsheet becomes an analytical schema, not a cell dump - and adding a
+  new modality is a config entry, never a core change (see *Extend it*, below).
+- **One corpus, many questions** - extraction is cached; a new Brief reshapes the
   graph without re-reading a single file.
-- **Safe by design** — the bytecode is inert data; the SVM never executes what's
+- **Safe by design** - the bytecode is inert data; the SVM never executes what's
   inside it. Read restrictions and a deny-by-default execution floor are enforced in
   code, never from a prompt.
 
-## Data as code — compiled, not parsed
+## Data as code - compiled, not parsed
 
 Smoothie treats your data the way a compiler treats source. Java doesn't re-parse your
-`.java` files every time the program runs — **`javac` compiles them once into portable
+`.java` files every time the program runs - **`javac` compiles them once into portable
 bytecode, and the JVM executes that bytecode** anywhere, deterministically, inside a
 sandbox. Smoothie is the same shape: the **Smoothie compiler** turns raw, scattered
-multimodal data into a portable **bytecode** (`bc.v1` — the "BC"), and
-the **SVM — the Smoothie *Virtual Machine*** — executes and serves it deterministically,
+multimodal data into a portable **bytecode** (`bc.v1` - the "BC"), and
+the **SVM - the Smoothie *Virtual Machine*** - executes and serves it deterministically,
 behind a safety floor (the sandbox). `bc.v1` is the classfile format both sides agree on.
 
 That makes data **first-class, code-grade artifacts**: the bytecode is versioned,
-diffable, roll-back-able, signable, and shippable — you compile understanding once and
+diffable, roll-back-able, signable, and shippable - you compile understanding once and
 run it everywhere, instead of re-deriving it from scratch on every query.
 
 ## How it works
@@ -66,7 +67,7 @@ run it everywhere, instead of re-deriving it from scratch on every query.
 ```mermaid
 flowchart LR
     A[smoothie_config.yaml<br/>+ data folder] --> I(ingest)
-    I --> D(describe<br/>agent writes Python)
+    I --> D(describe<br/>agent drives processors)
     D --> S(structure)
     S --> L(link<br/>cross-source edges)
     L --> R(resolve)
@@ -77,18 +78,40 @@ flowchart LR
     style BC fill:#8a2be2,color:#fff
 ```
 
-Each stage writes its output to `.smoothie/stages/` — the run is a sequence of
+Each stage writes its output to `.smoothie/stages/` - the run is a sequence of
 inspectable files, not one opaque pass. `describe` is cached per source by content
 hash, so re-compiling (or compiling the same data under a different Brief) reuses the
 expensive extraction.
 
+## Extend it - processors and custom modalities
+
+Smoothie owns exactly two things at the input edge: the **fact contract** and the
+**trust floor**. Everything else is yours to define. A **modality** is declared in
+`smoothie_config.yaml` with a custom name and a matcher - an extension, a glob, a MIME
+type, or a remote URI like `s3://` - and it points at a **processor**.
+
+A processor is a **self-contained navigation package**: a CLI that explores the data
+however its author wants, a `SKILL.md` that teaches the agent how to drive it, and a
+manifest of its commands. It can be written in **any language**. The agent drives the
+processor to navigate a source and authors receipted facts against your Brief; **code
+materializes every receipt**, so a third-party processor can never forge one or claim
+more trust than it earned. A processor that would rather be deterministic can emit
+facts directly (`extract`) and skip the model entirely.
+
+So anyone can teach Smoothie a new input - a proprietary binary format, a queryable
+index, a live API, an S3 bucket - without touching the core or waiting on us. The
+abstraction is the interface; the ecosystem is the point. See
+[ADR-0003](docs/adr/0003-open-language-agnostic-processors.md) and
+[spec 10 · Processors](docs/specs/10-processors.md).
+
 ## Install
 
-Smoothie is built from source — two halves plus a couple of runtime tools.
+Smoothie is built from source - two halves plus a couple of runtime tools.
 
 **Prerequisites:** [Rust/cargo](https://rustup.rs), [Node ≥ 22.19](https://nodejs.org)
-+ [pnpm](https://pnpm.io), [`uv`](https://docs.astral.sh/uv/) (runs the Python toolkit),
-and `ffmpeg` (video/audio). `tesseract` is optional (OCR).
++ [pnpm](https://pnpm.io), [`uv`](https://docs.astral.sh/uv/) and `ffmpeg` (for the
+**bundled** processors, which happen to be Python; your own processors bring their own
+runtime). `tesseract` is optional (OCR).
 
 ```bash
 git clone <repo> smoothie && cd smoothie
@@ -104,16 +127,17 @@ cd frontend && pnpm install && pnpm build && pnpm link --global && cd ..
 export PATH="$PWD/target/release:$PATH"
 ```
 
-**Python dependencies install themselves, lazily.** Nothing heavy is fetched at install
-time: the shared `describe` venv is provisioned on the first `compile`, and every
-toolkit script declares its own deps inline (PEP 723) so `uv run` builds an isolated,
-cached environment **per script on first use** — `faster-whisper` for video never bloats
-the JSON reader, and offline/local throughout.
+**The bundled processors install their own dependencies, lazily.** Nothing heavy is
+fetched at install time: the shared `describe` venv is provisioned on the first
+`compile`, and every bundled script declares its deps inline (PEP 723) so `uv run`
+builds an isolated, cached environment **per script on first use** - `faster-whisper`
+for video never bloats the JSON reader, and offline/local throughout. Custom processors
+manage their own runtime the same way, in whatever language they are written.
 
 ## Quick start
 
 ```bash
-# 1 · sign in once (ChatGPT subscription via Codex OAuth) — or set OPENAI_API_KEY
+# 1 · sign in once (ChatGPT subscription via Codex OAuth) - or set OPENAI_API_KEY
 smoothie login
 
 # 2 · drop a smoothie_config.yaml in your data folder (see below), then compile
@@ -127,7 +151,7 @@ svm query traverse <id> --bc ./my-data/.smoothie/bc.json --depth 2
 
 ### `smoothie_config.yaml`
 
-The one required input — the **Brief** (what to compile and why) plus runtime config
+The one required input - the **Brief** (what to compile and why) plus runtime config
 (model + per-stage thinking budget):
 
 ```yaml
@@ -152,7 +176,7 @@ stages:                               # optional; these are the defaults
 
 A single JSON document: a **graph** of `nodes` (topics / screens) and `edges` (typed
 relationships), grouped into `views`, threaded by Brief-shaped `outlines`, with a
-`fact` pool and a `manifest`. Every node and edge has `source_refs` — its receipts.
+`fact` pool and a `manifest`. Every node and edge has `source_refs` - its receipts.
 
 Fidelity is honest and never silently upgraded:
 
@@ -160,9 +184,9 @@ Fidelity is honest and never silently upgraded:
 |---|---|
 | `confirmed` | corroborated by a resolver, with a receipt + an evaluated check |
 | `claimed` | asserted by one source (the default) |
-| `guessed` | inferred — e.g. an induced cross-source edge. Real, but flagged |
+| `guessed` | inferred - e.g. an induced cross-source edge. Real, but flagged |
 
-## Consuming it — the SVM
+## Consuming it - the SVM
 
 The **Smoothie Virtual Machine** (`svm`) is a deterministic, model-free runtime.
 
@@ -176,11 +200,11 @@ svm emit test --outline <id> --bc <bc.json> --mode read-only   # web-app only
 
 ### Safety
 
-- **Inert data** — the SVM never executes anything embedded in the bytecode; an
+- **Inert data** - the SVM never executes anything embedded in the bytecode; an
   injection in a fact or `notice` is printed as data, never obeyed.
-- **Read restrictions** — a node may be `restricted` (content withheld unless
+- **Read restrictions** - a node may be `restricted` (content withheld unless
   `--reveal`) or carry a `notice` (a warning surfaced on every read), enforced in code.
-- **Execution floor (web-app)** — `emit` applies a deny-by-default floor; an embedded
+- **Execution floor (web-app)** - `emit` applies a deny-by-default floor; an embedded
   policy can only *tighten* it, never widen scope, unblock a destructive verb, raise a
   budget, or disable approval.
 
@@ -188,22 +212,22 @@ svm emit test --outline <id> --bc <bc.json> --mode read-only   # web-app only
 
 | Path | What |
 |---|---|
-| `frontend/` | the producer — the `smoothie` CLI + pipeline (TypeScript, on Pi) |
-| `svm/` | the consumer — the `svm` runtime (Rust) |
+| `frontend/` | the producer - the `smoothie` CLI + pipeline (TypeScript, on Pi) |
+| `svm/` | the consumer - the `svm` runtime (Rust) |
 | `schema/` | the `bc.v1` contract (JSON Schema + TS types, mirrored by `svm`) |
-| `skills/` | agent skills for driving the toolchain — `skills/smoothie/`, `skills/svm/` |
+| `skills/` | agent skills for driving the toolchain - `skills/smoothie/`, `skills/svm/` |
 
 ## Agent skills
 
 Driving Smoothie from an agent? Load the bundled skills:
 
-- **`skills/smoothie/`** — compiling data, authoring `smoothie_config.yaml`, tuning
-  stages, the reader model, incremental compiles.
-- **`skills/svm/`** — querying and traversing the bytecode, following receipts, the
+- **`skills/smoothie/`** - compiling data, authoring `smoothie_config.yaml`, tuning
+  stages, the processor model (custom modalities), incremental compiles.
+- **`skills/svm/`** - querying and traversing the bytecode, following receipts, the
   safety model, emit + versioning.
 
 ---
 
 <div align="center">
-<sub>Smoothie compiles your data into something an agent can trust — receipts and all.</sub>
+<sub>Smoothie compiles your data into something an agent can trust - receipts and all.</sub>
 </div>

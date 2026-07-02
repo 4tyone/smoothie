@@ -22,8 +22,9 @@ import { Type } from "@earendil-works/pi-ai";
 const TIMEOUT_MS = Number(process.env.SMOOTHIE_PY_TIMEOUT_MS ?? "600000");
 const MAX_OUTPUT = 30000;
 
-function envFor(toolkitDir?: string): NodeJS.ProcessEnv {
-  return toolkitDir ? { ...process.env, SMOOTHIE_TOOLKIT: toolkitDir } : process.env;
+function envFor(toolkitDir?: string, extra?: Record<string, string>): NodeJS.ProcessEnv {
+  const base: NodeJS.ProcessEnv = toolkitDir ? { ...process.env, SMOOTHIE_TOOLKIT: toolkitDir } : { ...process.env };
+  return extra ? { ...base, ...extra } : base;
 }
 
 /** Append each tool invocation to `_calls.log` in the workdir — a readable trace of
@@ -35,7 +36,7 @@ function logCall(workDir: string, kind: string, body: string): void {
 }
 
 /** Run one shell command in `workDir`; return combined stdout+stderr (truncated). */
-export function runCommand(command: string, workDir: string, toolkitDir?: string): string {
+export function runCommand(command: string, workDir: string, toolkitDir?: string, extraEnv?: Record<string, string>): string {
   fs.mkdirSync(workDir, { recursive: true });
   logCall(workDir, "run_command", command);
   try {
@@ -44,7 +45,7 @@ export function runCommand(command: string, workDir: string, toolkitDir?: string
       timeout: TIMEOUT_MS,
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
-      env: envFor(toolkitDir),
+      env: envFor(toolkitDir, extraEnv),
     });
     return truncate(out || "(no output)");
   } catch (e) {
@@ -54,7 +55,7 @@ export function runCommand(command: string, workDir: string, toolkitDir?: string
 }
 
 /** Run one Python snippet in `workDir`; return combined stdout+stderr (truncated). */
-export function runPython(code: string, workDir: string, toolkitDir?: string): string {
+export function runPython(code: string, workDir: string, toolkitDir?: string, extraEnv?: Record<string, string>): string {
   const python = ensurePythonEnv();
   fs.mkdirSync(workDir, { recursive: true });
   logCall(workDir, "run_python", code);
@@ -66,7 +67,7 @@ export function runPython(code: string, workDir: string, toolkitDir?: string): s
       timeout: TIMEOUT_MS,
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
-      env: envFor(toolkitDir),
+      env: envFor(toolkitDir, extraEnv),
     });
     return truncate(out || "(no output)");
   } catch (e) {
@@ -82,31 +83,30 @@ function truncate(s: string): string {
 /** The `run_command` tool — run a toolkit script (or ffmpeg/ffprobe/etc.). The
  *  toolkit lives at `$SMOOTHIE_TOOLKIT/<modality>/`; invoke a script with
  *  `uv run "$SMOOTHIE_TOOLKIT/<modality>/<script>.py" <args>`. */
-export function commandTool(workDir: string, toolkitDir: string): AgentTool {
+export function commandTool(workDir: string, toolkitDir: string, extraEnv?: Record<string, string>): AgentTool {
   return {
     name: "run_command",
     description:
       "Run a shell command in the source's working directory and return its stdout/stderr. " +
-      "PRIMARY USE: run the pre-built modality toolkit. The toolkit is at $SMOOTHIE_TOOLKIT " +
-      "(per-modality subfolders); each script is a self-contained CLI you invoke with " +
-      "`uv run \"$SMOOTHIE_TOOLKIT/<modality>/<script>.py\" <args> --json`. uv installs each " +
-      "script's dependencies on first use (cached). Run `uv run <script> --help` to see options. " +
-      "You may also call ffmpeg/ffprobe directly. Prefer toolkit scripts over writing extraction code.",
+      "PRIMARY USE: run this modality's processor commands (listed in the task). The source is " +
+      "at $SMOOTHIE_SOURCE_PATH; bundled toolkit scripts are under $SMOOTHIE_TOOLKIT and a " +
+      "processor package (if any) at $SMOOTHIE_PROCESSOR_DIR. Run a command multiple times with " +
+      "different args to navigate the source. Prefer processor commands over writing extraction code.",
     parameters: Type.Object({
-      command: Type.String({ description: "the shell command to run (e.g. uv run \"$SMOOTHIE_TOOLKIT/video/probe.py\" video.mp4 --json)" }),
+      command: Type.String({ description: "the shell command to run (e.g. uv run \"$SMOOTHIE_TOOLKIT/video/probe.py\" \"$SMOOTHIE_SOURCE_PATH\" --json)" }),
       purpose: Type.Optional(Type.String({ description: "what this step extracts" })),
     }),
     async run(args: Record<string, unknown>): Promise<string> {
       const command = String(args.command ?? "");
       if (!command.trim()) return "ERROR: empty command";
-      return runCommand(command, workDir, toolkitDir);
+      return runCommand(command, workDir, toolkitDir, extraEnv);
     },
   };
 }
 
 /** Build the `run_python` agent tool bound to a source's working directory. For
  *  data-specific glue the toolkit does not cover. */
-export function pythonTool(workDir: string, toolkitDir?: string): AgentTool {
+export function pythonTool(workDir: string, toolkitDir?: string, extraEnv?: Record<string, string>): AgentTool {
   return {
     name: "run_python",
     description:
@@ -122,7 +122,7 @@ export function pythonTool(workDir: string, toolkitDir?: string): AgentTool {
     async run(args: Record<string, unknown>): Promise<string> {
       const code = String(args.code ?? "");
       if (!code.trim()) return "ERROR: empty code";
-      return runPython(code, workDir, toolkitDir);
+      return runPython(code, workDir, toolkitDir, extraEnv);
     },
   };
 }
