@@ -13,7 +13,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { classifyModality } from "../readers/index.ts";
 import { loadReaderSkill, loadSkillFromDir, type ReaderSkill } from "../agent/skills.ts";
-import { toolkitScripts } from "../agent/toolkit.ts";
+import { bundledToolkitDir } from "../agent/toolkit.ts";
 import type { ModalityConfig } from "../config.ts";
 
 /** A single command the agent may drive (or `direct` runs): a shell template plus
@@ -54,6 +54,20 @@ interface ProcessorManifest {
     params?: Record<string, { type?: string; default?: unknown; description?: string }>;
     emits?: "text" | "extract";
   }>;
+}
+
+/** Read a package's `manifest.json` (a built-in or a config `path` package). */
+function readPackageManifest(dir: string): ProcessorManifest | null {
+  const manifestPath = path.join(dir, "manifest.json");
+  if (!fs.existsSync(manifestPath)) return null;
+  return JSON.parse(fs.readFileSync(manifestPath, "utf8")) as ProcessorManifest;
+}
+
+/** A manifest's commands as `ResolvedCommand`s (default `emits: "text"`). */
+function packageCommands(man: ProcessorManifest | null): ResolvedCommand[] {
+  return (man?.commands ?? []).map((c) => ({
+    name: c.name, run: c.run, description: c.description, params: c.params, emits: c.emits ?? "text",
+  }));
 }
 
 /** Glob -> anchored regex (`**` spans path separators, `*` does not). */
@@ -109,20 +123,20 @@ export function resolveProcessor(
     : resolveBuiltinProcessor(modality, bcDir);
 }
 
-/** The bundled toolkit + reader skill for a modality, as a first-class processor. */
+/** The bundled processor package for a modality (`toolkit/<modality>/`: a
+ *  `manifest.json` + co-located `SKILL.md` + the CLI scripts) — a first-class
+ *  processor resolved exactly like a config `path` package. Its commands invoke the
+ *  scaffolded toolkit via `$SMOOTHIE_TOOLKIT`, so `processorDir` stays unset. */
 function resolveBuiltinProcessor(modality: string, bcDir: string): ResolvedProcessor {
-  const scripts = toolkitScripts(modality); // *.py filenames, sorted
-  const commands: ResolvedCommand[] = scripts.map((s) => ({
-    name: s.replace(/\.py$/, ""),
-    run: `uv run "$SMOOTHIE_TOOLKIT/${modality}/${s}" "$SMOOTHIE_SOURCE_PATH" --json`,
-    emits: "text",
-  }));
+  const dir = path.join(bundledToolkitDir(), modality);
+  const man = readPackageManifest(dir);
+  const commands = packageCommands(man);
   return {
     modality,
     orchestration: "agent",
     commands,
-    skill: loadReaderSkill(modality, bcDir),
-    identity: `builtin:${modality}:${scripts.join(",")}`,
+    skill: loadReaderSkill(modality, bcDir), // project override -> package SKILL.md -> generic
+    identity: `builtin:${modality}:${man?.version ?? "0"}:${commands.map((c) => c.name).join(",")}`,
   };
 }
 
@@ -142,14 +156,11 @@ function resolveConfigProcessor(
     if (p.path) {
       const dir = path.resolve(folder, p.path);
       processorDir = dir;
-      const manifestPath = path.join(dir, "manifest.json");
-      if (!fs.existsSync(manifestPath)) {
+      const man = readPackageManifest(dir);
+      if (!man) {
         throw new Error(`processor package "${p.path}" (modality ${modality}) has no manifest.json`);
       }
-      const man = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as ProcessorManifest;
-      for (const c of man.commands ?? []) {
-        commands.push({ name: c.name, run: c.run, description: c.description, params: c.params, emits: c.emits ?? "text" });
-      }
+      commands.push(...packageCommands(man));
     } else if (p.run) {
       commands.push({
         name: p.name,

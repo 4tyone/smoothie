@@ -1,0 +1,19 @@
+{
+  "manifest": "smoothie.processor.v1",
+  "name": "generic",
+  "version": "0.2.0",
+  "commands": [
+    {
+      "name": "detect",
+      "description": "Identify an unknown file: magic-byte signature, MIME guess, size, text-vs-binary.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/generic/detect.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "text",
+      "description": "Best-effort text extraction from an unknown file: decode if textual, else pull",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/generic/text.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    }
+  ]
+}

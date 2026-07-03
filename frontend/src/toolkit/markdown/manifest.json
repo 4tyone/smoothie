@@ -1,0 +1,25 @@
+{
+  "manifest": "smoothie.processor.v1",
+  "name": "markdown",
+  "version": "0.2.0",
+  "commands": [
+    {
+      "name": "links",
+      "description": "Extract links, images, and YAML front-matter from a Markdown file.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/markdown/links.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "structure",
+      "description": "Parse a Markdown file's heading outline and section bodies (fenced code ignored).",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/markdown/structure.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "tables",
+      "description": "Parse GitHub-flavored Markdown tables into structured rows. Stdlib only.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/markdown/tables.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    }
+  ]
+}

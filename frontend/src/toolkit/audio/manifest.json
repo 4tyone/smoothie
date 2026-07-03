@@ -1,0 +1,31 @@
+{
+  "manifest": "smoothie.processor.v1",
+  "name": "audio",
+  "version": "0.2.0",
+  "commands": [
+    {
+      "name": "probe",
+      "description": "Probe an audio file with ffprobe -> duration, codec, channels, sample rate, tags.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/audio/probe.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "segment_silence",
+      "description": "Split audio into non-silent segments via ffmpeg silencedetect - useful to chunk a",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/audio/segment_silence.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "sentiment_segments",
+      "description": "Group a transcript's segments into consecutive runs of the same sentiment with",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/audio/sentiment_segments.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "transcribe",
+      "description": "Transcribe audio to timestamped segments with faster-whisper (offline, local).",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/audio/transcribe.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    }
+  ]
+}

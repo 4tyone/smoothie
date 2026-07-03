@@ -1,0 +1,31 @@
+{
+  "manifest": "smoothie.processor.v1",
+  "name": "html",
+  "version": "0.2.0",
+  "commands": [
+    {
+      "name": "links",
+      "description": "Extract links (and their anchor text) from an HTML file, split internal vs external.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/html/links.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "meta",
+      "description": "Extract metadata from HTML: <title>, meta description/keywords, OpenGraph, headings.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/html/meta.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "tables",
+      "description": "Extract every HTML <table> as structured rows (pandas.read_html).",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/html/tables.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "text",
+      "description": "Extract the main readable text from an HTML file as Markdown (boilerplate-stripped).",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/html/text.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    }
+  ]
+}

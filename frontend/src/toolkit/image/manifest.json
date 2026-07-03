@@ -1,0 +1,25 @@
+{
+  "manifest": "smoothie.processor.v1",
+  "name": "image",
+  "version": "0.2.0",
+  "commands": [
+    {
+      "name": "exif",
+      "description": "Read EXIF metadata (camera, timestamp, GPS) from an image.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/image/exif.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "ocr",
+      "description": "OCR text from an image (tesseract). Requires the `tesseract` binary (system).",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/image/ocr.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "probe",
+      "description": "Probe an image -> dimensions, mode, format, dominant colors, basic stats.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/image/probe.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    }
+  ]
+}
