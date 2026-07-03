@@ -14,8 +14,10 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as YAML from "yaml";
 
-/** Built-in reader skills shipped with the package. */
-const BUNDLED_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "skills", "readers");
+/** Built-in reader skills ship co-located inside each bundled processor package
+ *  (`../toolkit/<modality>/SKILL.md`) — spec 10, the package is CLI + SKILL.md +
+ *  manifest.json. `loadReaderSkill` reads `<root>/<modality>/SKILL.md`. */
+const BUNDLED_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "toolkit");
 
 export interface ReaderSkill {
   name: string;
@@ -72,11 +74,6 @@ export function loadReaderSkill(modality: string, bcDir?: string): ReaderSkill {
   return readSkillDir(path.join(BUNDLED_DIR, "generic")) ?? {
     name: "generic", description: "", body: "Extract meaningful facts from the source with Python.", references: [], source: "(builtin)",
   };
-}
-
-/** The directory holding the built-in skills (for `smoothie skills install`). */
-export function bundledSkillsDir(): string {
-  return BUNDLED_DIR;
 }
 
 /** Render a loaded skill as the text injected into the agent's system prompt. */

@@ -73,27 +73,37 @@ function cmdLogin(argv: string[]): number {
   return res.status ?? 1;
 }
 
-/** `smoothie skills install [folder]` — copy the built-in reader skills into
- *  `<folder>/.smoothie/skills/` so you can inspect and customize them. */
+/** `smoothie skills install [folder]` — scaffold the bundled processor packages
+ *  and copy each package's `SKILL.md` into `<folder>/.smoothie/skills/<modality>/`
+ *  as an editable, persistent override (spec 10 · skill precedence). */
 async function cmdSkills(argv: string[]): Promise<number> {
   const sub = argv[0];
-  const { bundledSkillsDir } = await import("./agent/skills.ts");
-  const { scaffoldToolkit } = await import("./agent/toolkit.ts");
+  const { scaffoldToolkit, bundledToolkitDir } = await import("./agent/toolkit.ts");
   if (sub === "install") {
     const folder = argv.find((a, i) => i > 0 && !a.startsWith("--")) ?? ".";
     const bcDir = path.join(path.resolve(folder), ".smoothie");
-    const dest = path.join(bcDir, "skills");
-    fs.mkdirSync(dest, { recursive: true });
-    fs.cpSync(bundledSkillsDir(), dest, { recursive: true });
-    const tools = scaffoldToolkit(bcDir);
+    const tools = scaffoldToolkit(bcDir); // packages (scripts + manifest.json + SKILL.md)
+    // Copy each package's SKILL.md to .smoothie/skills/<modality>/ — the persistent
+    // override the resolver prefers (scaffolded tools/ is overwritten each compile).
+    const src = bundledToolkitDir();
+    const skillsDest = path.join(bcDir, "skills");
+    let n = 0;
+    for (const m of fs.readdirSync(src)) {
+      const sk = path.join(src, m, "SKILL.md");
+      if (fs.existsSync(sk)) {
+        fs.mkdirSync(path.join(skillsDest, m), { recursive: true });
+        fs.copyFileSync(sk, path.join(skillsDest, m, "SKILL.md"));
+        n++;
+      }
+    }
     console.error(
-      `✓ installed built-in reader skills → ${dest}\n` +
-      `✓ installed modality toolkit       → ${tools}\n` +
-      `  edit any skills/<modality>/SKILL.md or tools/<modality>/*.py to customize extraction.`,
+      `✓ scaffolded processor packages          → ${tools}\n` +
+      `✓ copied ${n} editable skill overrides    → ${skillsDest}\n` +
+      `  edit skills/<modality>/SKILL.md to override, or tools/<modality>/ (scripts + manifest.json) to tweak commands.`,
     );
     return 0;
   }
-  console.error("usage: smoothie skills install [folder]   # copy built-in skills + toolkit to <folder>/.smoothie/");
+  console.error("usage: smoothie skills install [folder]   # scaffold processor packages + skills into <folder>/.smoothie/");
   return sub ? 2 : 0;
 }
 

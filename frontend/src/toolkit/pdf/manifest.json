@@ -1,0 +1,37 @@
+{
+  "manifest": "smoothie.processor.v1",
+  "name": "pdf",
+  "version": "0.2.0",
+  "commands": [
+    {
+      "name": "images",
+      "description": "Extract embedded raster images from a PDF to a directory (for vision/figures).",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/pdf/images.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "ocr",
+      "description": "OCR scanned PDF pages (rasterize -> tesseract). Use for pages probe.py flags as",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/pdf/ocr.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "probe",
+      "description": "Probe a PDF -> page count, metadata, per-page text coverage (detect scanned pages).",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/pdf/probe.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "tables",
+      "description": "Extract tables from a PDF with pdfplumber, page by page.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/pdf/tables.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "text",
+      "description": "Extract per-page text from a PDF (layout-aware), with page locators for receipts.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/pdf/text.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    }
+  ]
+}

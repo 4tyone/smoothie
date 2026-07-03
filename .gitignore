@@ -1,0 +1,49 @@
+# Rust build artifacts
+target/
+debug/
+release/
+*.rs.bk
+*.rlib
+*.prof*
+
+# Cargo
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Node / TypeScript (frontend + schema packages)
+node_modules/
+dist/
+*.tsbuildinfo
+pnpm-lock.yaml
+
+# Model credentials - Pi/Codex OAuth tokens (ChatGPT subscription). NEVER commit.
+auth.json
+.pi/
+
+# Provisioned Python env for the describe agent (recreated by `uv` on demand)
+.smoothie-pyenv/
+
+# Environment
+.env
+.env.*
+*.log
+
+# Local design docs/specs - kept on disk, out of git history. Anchored to the repo
+# root so nested dirs (e.g. frontend/src/toolkit/docs) are NOT swept up.
+/docs/
+/specs/
+/specs_/
+
+# other
+.snek/
+.claude/
+

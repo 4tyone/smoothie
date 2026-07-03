@@ -1,0 +1,25 @@
+{
+  "manifest": "smoothie.processor.v1",
+  "name": "json",
+  "version": "0.2.0",
+  "commands": [
+    {
+      "name": "flatten",
+      "description": "Flatten a JSON array of objects (or a path into one) into a table, then profile it",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/json/flatten.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "schema",
+      "description": "Infer a JSON Schema from a JSON (or JSON-Lines) file - the shape of the data.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/json/schema.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "stats",
+      "description": "Structural stats for a JSON file: depth, type counts, key frequencies, array sizes.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/json/stats.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    }
+  ]
+}

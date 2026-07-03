@@ -1,0 +1,25 @@
+{
+  "manifest": "smoothie.processor.v1",
+  "name": "docs",
+  "version": "0.2.0",
+  "commands": [
+    {
+      "name": "structure",
+      "description": "Extract a .docx's heading outline (the document's structure/TOC).",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/docs/structure.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "tables",
+      "description": "Extract tables from a .docx as rows.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/docs/tables.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "text",
+      "description": "Extract text from an Office document - .docx (paragraphs), .pptx (per-slide),",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/docs/text.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    }
+  ]
+}
