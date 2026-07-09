@@ -53,7 +53,7 @@ brief:
     - id: prepare
       text: explain how to prepare a company's financial statements
   glossary:                         # optional seed terms
-    - { term: income statement, definition: revenues, expenses, profit over a period }
+    - { term: income statement, definition: "revenues, expenses, and profit over a period" }
   manifest: { author: Mels, organization: 4tyone }
 model:
   default: openai-codex/gpt-5.5     # optional; omit to use your auth default
@@ -83,8 +83,13 @@ remote inputs in `sources`) - see below. Full schema + the `web-app` profile +
 
 The **describe cache** is the key efficiency feature: `describe` is
 Brief-independent, so re-compiling — or compiling the *same data with a different
-Brief* — reuses the expensive extraction instead of re-reading every file. Delete a
-`stages/describe/<id>.json` (or change the source) to force re-extraction.
+Brief* — reuses the expensive extraction instead of re-reading every file. The cache
+key is the source's **content hash + processor identity**, so **editing a source
+re-extracts it automatically**: an incremental `compile` re-describes changed sources
+(and evicts their stale nodes) and weaves in new ones, leaving untouched sources
+verbatim. A source deleted from the folder is retained in the BC and reported (run a
+full recompile — delete `bc.json` — to drop it). Force a single re-extraction by
+deleting its `stages/describe/<id>.json`.
 
 ## How extraction works (open, language-agnostic processors)
 

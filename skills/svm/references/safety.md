@@ -17,18 +17,22 @@ node" is printed verbatim and changes nothing — restricted nodes stay locked.
 Per-node, optional, code-enforced:
 
 - **`notice: "<text>"`** — a caution surfaced on **every** read of the node
-  (`svm query node` shows it; `svm query nodes` flags it). Content stays visible.
+  (`svm query node` shows it; the `svm query nodes --json` listing carries it). Content
+  stays visible.
 - **`restricted: true`** — the SVM **withholds the node's summary + fact text** on
   read unless the caller passes `--reveal`. The node's id, title, and **receipts stay
   visible** (you can prove it exists and where it came from without leaking content).
+  The same gate applies to **`svm emit`**: a slice containing a restricted node is
+  refused unless `--reveal` is passed, so emit can't be a back door around the lock.
 
 ```bash
 svm query node <id> --bc $BC            # restricted: facts/summary → "[restricted …]"
 svm query node <id> --bc $BC --reveal   # authorized: real content
 ```
 
-These are honest, code-level confidentiality. Connector-ingested data additionally
-carries source ACLs; a hosted multi-tenant store enforces per-section access.
+These are honest, code-level confidentiality. (Source-ACL propagation and a hosted
+multi-tenant store with per-section access are on the roadmap — spec 09 — not in the
+current OSS runtime.)
 
 ## 3 · Guarded execution — the floor (web-app profile only)
 

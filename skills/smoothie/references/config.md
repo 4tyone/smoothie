@@ -21,10 +21,10 @@ Top level has `version`, `profile`, `brief`, and optional `model` + `stages`.
 |---|---|---|
 | `intent` | yes | One paragraph: what the BC is for. Becomes `brief.text`. |
 | `goals` | yes (≥1) | `[{ id, text, done_when? }]`. **Each goal becomes a Brief-shaped outline** over the merged graph. |
-| `scope` | no | `{ include?: [glob], exclude?: [glob], sources?: [{ path, note? }] }`. |
+| `scope` | no | `{ include?: [glob], exclude?: [glob], sources?: [{ path, note? }] }`. **Reserved** — parsed but not yet enforced; control inputs today with folder layout + `.smoothieignore`. |
 | `target` | no (web-app) | `{ base_url, allowed_origins: [..], start_paths: [..] }`. Feeds the policy scope floor. |
-| `verify` | no | `{ resolve?: bool, resolvers?: [name], mode?: read-only\|dry-run\|live, credentials? }`. Drives the resolve stage. |
-| `policy` | no (web-app) | `{ danger: [{ match, level: block\|approve\|supervise, reason }], budget: { max_actions?, max_pages? } }`. Seeds the BC policy — the SVM floor can only *tighten* it. |
+| `verify` | no | `{ resolve?: bool, resolvers?: [name] }`. `resolvers` names the resolvers to run; `resolve: false` disables the stage. (`mode`/`credentials` are reserved — parsed, not yet used.) |
+| `policy` | no (web-app) | `{ danger: [{ match, level: block\|approve\|supervise, reason }], budget: { max_actions?, max_pages? }, secrets: { redact_patterns: [regex] } }`. Seeds the BC policy — the SVM floor can only *tighten* it. **Written to the BC only for `web-app`**; `secrets.redact_patterns` also scrubs fact text at describe (built-in secret shapes always apply). |
 | `glossary` | no | `[{ term, definition }]` → BC glossary. |
 | `manifest` | no | `{ app_name?, author?, organization? }` → BC manifest/authorship. |
 
@@ -57,7 +57,7 @@ Each `modalities.<name>` entry:
 
 | Key | Required | Notes |
 |---|---|---|
-| `match` | yes | How sources match this modality: `{ ext?: [..], glob?: [..], mime?: [..], uri?: str \| [..] }`. Resolution order: config modalities (first match) → built-in extension map → `generic` (never silently skipped). |
+| `match` | yes | How sources match this modality: `{ ext?: [..], glob?: [..], uri?: str \| [..] }` (`mime?` is reserved — not yet evaluated; use `ext`/`glob`/`uri`). Resolution order: config modalities (first match) → built-in extension map → `generic` (never silently skipped). |
 | `orchestration` | no | `agent` (default) — the describe agent drives the processor's commands, guided by its skill; or `direct` — run the processor's `extract` command with no model. |
 | `processors` | yes (≥1) | Each: `{ name, run? , path?, params? }`. `run` is an inline shell template; `path` points at a package dir (CLI + `SKILL.md` + `manifest.json`). `params` (`{ <name>: { type?, default?, description? } }`) are exposed to the command as `$<name>` and `SMOOTHIE_PARAM_<NAME>`. |
 | `skill` | no | Path to a `SKILL.md` override. Skill precedence: processor-bundled → this override → project `.smoothie/skills/<modality>/` → bundled → `generic`. |
@@ -68,7 +68,10 @@ A processor is invoked with the **source descriptor** in its environment:
 `SMOOTHIE_SOURCE_BASENAME`, `SMOOTHIE_MODALITY`, `SMOOTHIE_WORKDIR`,
 `SMOOTHIE_TOOLKIT`, `SMOOTHIE_PROCESSOR_DIR` (for `path` packages), `SMOOTHIE_PARAMS`,
 and `SMOOTHIE_BRIEF`. A `direct`/`extract` command prints one `smoothie.extraction.v1`
-fact bundle to stdout; validate with `smoothie preprocess --check <folder>`.
+fact bundle to stdout (validated against the schema when the pipeline runs it).
+`smoothie preprocess --check <folder>` is a dry run of processor *resolution* only —
+it reports each source's modality, orchestration, skill, and command list (parsing
+`path` package manifests); it does not execute a command or validate an envelope.
 
 `sources` (optional) declares explicit/remote inputs beyond folder-walking:
 `[{ uri, modality }]`. The named modality's `fetch` localizes each one.

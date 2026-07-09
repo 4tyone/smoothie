@@ -34,19 +34,25 @@ Most commands take `--bc <path>` (or discover `.smoothie/bc.json` in cwd) and
 |---|---|
 | `svm validate <bc.json>` | Check the schema + the four provenance-guarantee gates. Exit non-zero on violation; names the offending edge/node. |
 | `svm query node <id> [--reveal]` | A node with its facts + resolved receipts. `--reveal` releases a *restricted* node's content. |
-| `svm query nodes [--fidelity F] [--kind K]` | List nodes; flags restricted/noticed ones. |
+| `svm query nodes [--fidelity F] [--kind K]` | List nodes. The `--json` listing carries the `restricted`/`notice` flags. |
 | `svm query edges <id> [--kind K] [--direction out\|in\|both]` | Follow edges from/to a node. |
 | `svm query view <view_id>` | Resolve a view to its member nodes. |
 | `svm query outline <outline_id>` | The scenes of a Brief-shaped outline. |
 | `svm query gaps` | Surface `gap:*` notes (known holes). |
+| `svm query glossary [term]` | The BC's glossary (all terms, or one). |
+| `svm query notes [key]` | The BC's notes (all, or one) — incl. non-`gap:` observations. |
 | `svm query traverse <id> [--depth N]` | Bounded breadth-first traversal with the path + edge kinds. |
-| `svm emit test\|skill [--outline O \| --node N ...] [--mode read-only\|dry-run\|live] [--stdout\|--out DIR]` | **Web-app profile only.** Emit a guardrailed runnable slice (Playwright test or skill). Refuses for `corpus`. |
-| `svm bc show\|init\|history\|rollback` | Manage a git-versioned BC store. |
+| `svm emit test\|skill [--outline O \| --node N ...] [--mode read-only\|dry-run\|live] [--reveal] [--stdout\|--out DIR]` | **Web-app profile only.** Emit a guardrailed runnable slice (Playwright test or skill). Refuses for `corpus`; refuses a slice that exceeds the floor, its budget, or contains a restricted node (unless `--reveal`). |
+| `svm bc show\|init\|history\|rollback` | Manage a git-versioned BC store (operate on `bc.json`). |
 | `svm skill` | Print/install the SVM's own consumption skill (`SKILL.md`). |
 
-`init`, `node`, `cache`, `hit`, `write`, `sync`, `glossary`, `notes` belong to a
-separate **metadata-index** surface (`smoothie init` corpus indexing), *not* bc.v1
-consumption — they take a corpus dir, not `--bc`.
+**For a bytecode, prefer the `svm query …` and `svm bc …` subcommands.** The
+top-level `svm init`, `node`, `cache`, `hit`, `write`, `sync`, `history`, `rollback`,
+`glossary`, `notes` belong to a separate **metadata-index** surface (`svm init` corpus
+indexing) — they take a corpus dir and read `.smoothie/index.json`, not `--bc`, and will
+error on a BC-only `.smoothie/`. The BC equivalents live under `query`/`bc`:
+`svm query glossary`/`svm query notes` read the bytecode's sections; `svm bc history`/
+`svm bc rollback` version the bytecode. Reach for those with a BC.
 
 ## The consumption loop (how to answer a question)
 
