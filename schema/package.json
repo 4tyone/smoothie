@@ -1,6 +1,6 @@
 {
   "name": "@smoothie/schema",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "bc.v1 — the Smoothie BC contract: TypeScript types + JSON Schema, the single source of truth for the seam (spec 02/07).",
   "license": "MIT",
   "type": "module",
