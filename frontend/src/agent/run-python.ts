@@ -16,6 +16,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
 import { ensurePythonEnv } from "./python-env.ts";
+import { sanitizedEnv } from "../redact.ts";
 import type { AgentTool } from "../model/gateway.ts";
 import { Type } from "@earendil-works/pi-ai";
 
@@ -23,7 +24,9 @@ const TIMEOUT_MS = Number(process.env.SMOOTHIE_PY_TIMEOUT_MS ?? "600000");
 const MAX_OUTPUT = 30000;
 
 function envFor(toolkitDir?: string, extra?: Record<string, string>): NodeJS.ProcessEnv {
-  const base: NodeJS.ProcessEnv = toolkitDir ? { ...process.env, SMOOTHIE_TOOLKIT: toolkitDir } : { ...process.env };
+  // Credential-shaped env vars are stripped so agent-run code never sees the
+  // operator's API keys (spec 06 · §2).
+  const base: NodeJS.ProcessEnv = toolkitDir ? { ...sanitizedEnv(), SMOOTHIE_TOOLKIT: toolkitDir } : { ...sanitizedEnv() };
   return extra ? { ...base, ...extra } : base;
 }
 

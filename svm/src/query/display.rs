@@ -172,6 +172,37 @@ impl fmt::Display for GapList<'_> {
     }
 }
 
+pub struct GlossaryList<'a>(pub &'a [GlossaryView]);
+
+impl fmt::Display for GlossaryList<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.0.is_empty() {
+            return write!(f, "(no glossary terms)");
+        }
+        for g in self.0 {
+            writeln!(f, "{} — {}", g.term, g.definition)?;
+        }
+        Ok(())
+    }
+}
+
+pub struct NoteList<'a>(pub &'a [NoteView]);
+
+impl fmt::Display for NoteList<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.0.is_empty() {
+            return write!(f, "(no notes)");
+        }
+        for n in self.0 {
+            match &n.kind {
+                Some(k) => writeln!(f, "{} ({}) — {}", n.key, k, n.text)?,
+                None => writeln!(f, "{} — {}", n.key, n.text)?,
+            }
+        }
+        Ok(())
+    }
+}
+
 impl fmt::Display for TraversalView {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "traverse from {} (max_depth {})", self.from, self.max_depth)?;

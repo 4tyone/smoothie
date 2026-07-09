@@ -6,7 +6,7 @@ All examples assume `BC=<folder>/.smoothie/bc.json`. Add `--json` for machine ou
 
 ```bash
 svm bc show --bc $BC                 # profile, authorship, counts
-svm query nodes --bc $BC            # every node (id :: title :: kind :: fidelity)
+svm query nodes --bc $BC            # every node, printed as `id — title (kind, fidelity)`
 svm query nodes --bc $BC --kind topic --fidelity claimed
 svm query gaps --bc $BC            # known holes (gap:* notes)
 ```
@@ -40,7 +40,23 @@ svm query view <view_id> --bc $BC          # a screen/document → its member no
 svm query outline <outline_id> --bc $BC    # a Brief goal's scenes (the flow to follow)
 ```
 Each Brief goal becomes an outline (`o-<goal-id>`). Start there to answer a
-goal-shaped question; the scene lists the in-scope nodes.
+goal-shaped question; a scene lists its member nodes. (In a v1 BC the linker puts
+the merged graph's nodes in one scene per goal — treat the outline as the goal's
+entry point, then narrow with `edges`/`traverse`, not as a hand-curated subset.)
+
+## Glossary & notes (from the BC)
+
+```bash
+svm query glossary --bc $BC            # every term → definition
+svm query glossary dunning --bc $BC    # one term
+svm query notes --bc $BC               # every note (incl. non-gap decisions/observations)
+svm query notes decision:prefer-video --bc $BC   # one key
+```
+These read the **bytecode's** `glossary`/`notes` sections. (Top-level `svm glossary`/
+`svm notes` are the legacy metadata-index commands — they read `.smoothie/index.json`
+and error on a BC-only store; use the `query` forms with a BC.) `query notes` is a
+superset of `query gaps`: gaps are the `gap:*` notes, but notes also carry `decision:`
+and other durable observations.
 
 ## Reading fidelity honestly
 
@@ -48,11 +64,12 @@ goal-shaped question; the scene lists the in-scope nodes.
 - `claimed` — asserted by one source. The default.
 - `guessed` — inferred (induced cross-source edges, proposed actions). Real but not
   directly stated — flag it when you rely on it.
+- `absent` — no basis; a placeholder rank (`--fidelity absent` is accepted as a filter).
 
 ## Restricted / noticed nodes
 
 ```bash
-svm query nodes --bc $BC                    # listing flags restricted + notice
+svm query nodes --bc $BC --json             # the JSON listing carries restricted + notice
 svm query node <id> --bc $BC                # restricted → content withheld
 svm query node <id> --bc $BC --reveal       # authorized → content released
 ```

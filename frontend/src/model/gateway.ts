@@ -33,14 +33,23 @@ export interface ExtractRequest<S extends GenericSchema> {
   readonly reasoning?: string;
 }
 
+/** A tool result that carries more than text — `read_image` returns the pixels
+ *  of workdir artifacts as image blocks the model actually sees (spec 04 · the
+ *  one built-in vision affordance). */
+export interface AgentToolResult {
+  text?: string;
+  images?: ReadonlyArray<{ data: string; mimeType: string }>;
+}
+
 /** A tool the agent may call during an agentic extraction (e.g. `run_python`). */
 export interface AgentTool {
   name: string;
   description: string;
   /** Typebox schema (pi-ai's tool param format). */
   parameters: unknown;
-  /** Execute the tool; return the text result the model sees. */
-  run(args: Record<string, unknown>): Promise<string>;
+  /** Execute the tool; return what the model sees — plain text, or text plus
+   *  attached images. */
+  run(args: Record<string, unknown>): Promise<string | AgentToolResult>;
 }
 
 /** An agentic extraction: the model explores with `tools` (writing + running

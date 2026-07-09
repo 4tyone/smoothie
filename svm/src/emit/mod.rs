@@ -92,13 +92,15 @@ pub struct EmittedArtifact {
 
 /// Emit a guardrailed slice. Refuses (errors) if any step exceeds the floor
 /// (`DENY`) — "the SVM refuses to emit an artifact that tries to widen the floor"
-/// (spec 06).
+/// (spec 06) — if the slice exceeds the effective budget, or if it contains a
+/// `restricted` node without explicit authorization (`reveal`).
 pub fn emit(
     bc: &Bc,
     spec: &SliceSpec,
     target: Target,
     mode: Mode,
     vault: &Vault,
+    reveal: bool,
 ) -> Result<EmittedArtifact> {
     // Emit is web-app-only — other profiles have no executable payload (spec 05).
     if bc.manifest.profile != PROFILE_WEB_APP {
@@ -109,7 +111,32 @@ pub fn emit(
     }
 
     let nodes = resolve_slice(bc, spec)?;
-    let eff = EffectivePolicy::effective(bc);
+    let mut eff = EffectivePolicy::effective(bc);
+
+    // Restricted nodes never leave through emit without explicit authorization —
+    // the same gate as `query node --reveal` (spec 06 · §2 confidentiality).
+    let withheld: Vec<&str> = nodes
+        .iter()
+        .filter(|n| n.restricted)
+        .map(|n| n.id.as_str())
+        .collect();
+    if !withheld.is_empty() && !reveal {
+        return Err(SmoothieError::General(format!(
+            "emit refused: slice contains {} restricted node(s) ({}) — pass --reveal to authorize including them",
+            withheld.len(),
+            withheld.join(", ")
+        )));
+    }
+
+    // Budget is checked at emit, not just baked into the artifact: refuse to
+    // emit anything that exceeds it (spec 06 · §3).
+    if nodes.len() as u64 > eff.max_actions {
+        return Err(SmoothieError::General(format!(
+            "emit refused: slice has {} step(s), exceeding the effective budget (max_actions = {})",
+            nodes.len(),
+            eff.max_actions
+        )));
+    }
 
     // Classify every step against the floor-intersected policy; audit each.
     let mut audit = AuditLog::default();
@@ -150,6 +177,21 @@ pub fn emit(
         .map(|s| s.redact_patterns.clone())
         .unwrap_or_default();
     let redactor = Redactor::new(vault.secret_values(&cred_refs), redact_patterns);
+
+    // The artifact contents are redacted below, but the audit trail and the
+    // effective policy also echo BC-authored strings — redact them too so the
+    // emit `--json` report can never surface a secret (spec 06 · §2).
+    for e in &mut audit.entries {
+        e.action = redactor.redact(&e.action);
+        e.reason = redactor.redact(&e.reason);
+        e.matched_rule = e.matched_rule.as_deref().map(|s| redactor.redact(s));
+    }
+    for d in &mut eff.danger {
+        d.reason = redactor.redact(&d.reason);
+    }
+    for r in &mut eff.allow_rules {
+        r.reason = redactor.redact(&r.reason);
+    }
 
     let slice_title = slice_title(bc, spec);
     let raw = match target {

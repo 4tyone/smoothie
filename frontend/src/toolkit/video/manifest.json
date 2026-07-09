@@ -4,21 +4,21 @@
   "version": "0.2.0",
   "commands": [
     {
-      "name": "extract_frames",
-      "description": "Extract frames from a video - a single frame at a timestamp, or a set over a range.",
-      "run": "uv run \"$SMOOTHIE_TOOLKIT/video/extract_frames.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
-      "emits": "text"
-    },
-    {
-      "name": "keyframes",
-      "description": "Extract representative keyframes (I-frames) from a video - one image per visual",
-      "run": "uv run \"$SMOOTHIE_TOOLKIT/video/keyframes.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
-      "emits": "text"
-    },
-    {
       "name": "probe",
-      "description": "Probe a video's container/streams with ffprobe -> duration, fps, resolution, codecs.",
+      "description": "Probe a video's container/streams with ffprobe -> duration, fps, resolution, codecs, has_audio.",
       "run": "uv run \"$SMOOTHIE_TOOLKIT/video/probe.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "transcribe",
+      "description": "Transcribe a video/audio file to timestamped segments with faster-whisper. Write the transcript to a file so later steps can read it.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/video/transcribe.py\" \"$SMOOTHIE_SOURCE_PATH\" --out transcript.json --json",
+      "emits": "text"
+    },
+    {
+      "name": "sentiment_segments",
+      "description": "Group a transcript's segments into consecutive runs of the same sentiment, with timestamp ranges. Reads the transcript from transcribe (no positional source arg).",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/video/sentiment_segments.py\" --transcript transcript.json --json",
       "emits": "text"
     },
     {
@@ -28,15 +28,15 @@
       "emits": "text"
     },
     {
-      "name": "sentiment_segments",
-      "description": "Group a transcript's segments into consecutive runs of the same sentiment, with",
-      "run": "uv run \"$SMOOTHIE_TOOLKIT/video/sentiment_segments.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "name": "extract_frames",
+      "description": "Extract frames from a video - one frame at --at T, or N evenly-spaced frames over --range START END. Then attach the returned paths with read_image.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/video/extract_frames.py\" \"$SMOOTHIE_SOURCE_PATH\" --range <start_s> <end_s> --count 3 --out frames --json",
       "emits": "text"
     },
     {
-      "name": "transcribe",
-      "description": "Transcribe a video/audio file to timestamped segments with faster-whisper.",
-      "run": "uv run \"$SMOOTHIE_TOOLKIT/video/transcribe.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "name": "keyframes",
+      "description": "Extract representative keyframes (I-frames) from a video - one image per visual change. Then attach them with read_image.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/video/keyframes.py\" \"$SMOOTHIE_SOURCE_PATH\" --max 12 --out keyframes --json",
       "emits": "text"
     }
   ]

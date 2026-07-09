@@ -14,6 +14,8 @@ import { runCompile } from "../src/pipeline.ts";
 import { DeterministicModelGateway } from "../src/model/deterministic.ts";
 
 import { ingest } from "../src/stages/ingest.ts";
+import { assertUniqueNodeIds, normalizeAction } from "../src/stages/compile.ts";
+import { evictSources, sourceOfRefs, type ExistingGraph } from "../src/stages/link.ts";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CORPUS = path.join(HERE, "fixtures/corpus");
@@ -214,5 +216,110 @@ vdescribe("Phase 3 — link & incremental", () => {
     const removedNodeDefs = diff.split("\n").filter((l) => /^-\s*"n-src-(billing|invoices)[^"]*":\s*\{/.test(l));
     expect(removedNodeDefs).toEqual([]);
     expect(diff).toMatch(/^\+.*"n-src-accounts/m); // the new node was added
+  });
+});
+
+vdescribe("Phase 3 — data integrity (D)", () => {
+  const writeConfig = (dir: string) =>
+    fs.writeFileSync(path.join(dir, "smoothie_config.yaml"),
+      "version: smoothie.config.v1\nprofile: corpus\nbrief:\n  intent: x\n  goals:\n    - id: g\n      text: t\n");
+
+  it("distinct files that sanitize to the same id get distinct source_ids (no collision)", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "smoothie-collide-"));
+    writeConfig(dir);
+    // `a.b.md` and `a_b.md` both sanitize to `src-a-b-md`.
+    fs.writeFileSync(path.join(dir, "a.b.md"), "# One\nfirst file");
+    fs.writeFileSync(path.join(dir, "a_b.md"), "# Two\nsecond file");
+    const ids = ingest(dir).sources.map((s) => s.source_id);
+    expect(new Set(ids).size).toBe(2); // no silent collapse
+    expect(ids.filter((id) => id.startsWith("src-a-b-md")).length).toBe(2);
+  });
+
+  it("source_ids are deterministic across re-ingest (disambiguator is stable)", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "smoothie-collide2-"));
+    writeConfig(dir);
+    fs.writeFileSync(path.join(dir, "a.b.md"), "# One\nfirst");
+    fs.writeFileSync(path.join(dir, "a_b.md"), "# Two\nsecond");
+    const a = ingest(dir).sources.map((s) => s.source_id).sort();
+    const b = ingest(dir).sources.map((s) => s.source_id).sort();
+    expect(a).toEqual(b);
+  });
+
+  it("compile fails loudly on duplicate node ids (never silent last-writer-wins)", () => {
+    expect(() => assertUniqueNodeIds([{ id: "n-1" }, { id: "n-2" }, { id: "n-1" }])).toThrow(/duplicate node id/);
+    expect(() => assertUniqueNodeIds([{ id: "n-1" }, { id: "n-2" }])).not.toThrow();
+  });
+
+  it("normalizeAction preserves every legal verb and fails loudly on unknowns", () => {
+    const loc = { description: "x", primary: { by: "text", value: "x" }, fallbacks: [] };
+    // scroll/wait_for are NOT relabeled to click anymore.
+    expect(normalizeAction({ kind: "scroll", to: "bottom" })).toEqual({ kind: "scroll", to: "bottom" });
+    expect(normalizeAction({ kind: "wait_for", condition: "visible" })).toEqual({ kind: "wait_for", condition: "visible" });
+    expect(normalizeAction({ kind: "press" })).toEqual({ kind: "press", key: "Enter" });
+    expect(normalizeAction({ kind: "click", locator: loc })).toEqual({ kind: "click", locator: loc });
+    // A required locator that's missing, and an unknown verb, both throw.
+    expect(() => normalizeAction({ kind: "click" })).toThrow(/missing its required locator/);
+    expect(() => normalizeAction({ kind: "teleport" })).toThrow(/unknown action kind/);
+  });
+
+  it("evictSources removes a source's artifacts by receipt, keeping others intact", () => {
+    const ref = (sid: string) => [{ source_id: sid, span: { kind: "doc" } }];
+    const existing: ExistingGraph = {
+      sources: { "src-a": { hash: "h1" }, "src-b": { hash: "h2" } },
+      facts: [
+        { fact_id: "src-a-f0", kind: "knowledge", text: "a", confidence: 1, fidelity: "claimed", source_refs: ref("src-a"), brief_id: "b" },
+        { fact_id: "src-b-f0", kind: "knowledge", text: "b", confidence: 1, fidelity: "claimed", source_refs: ref("src-b"), brief_id: "b" },
+      ],
+      nodes: [
+        { id: "n-a", source_refs: ref("src-a") },
+        { id: "n-b", source_refs: ref("src-b") },
+      ],
+      edges: [{ from: "n-a", to: "n-b", source_refs: ref("src-a") }],
+      views: [{ view_id: "v1", node_ids: ["n-a", "n-b"] }],
+      gaps: [],
+      existingNodeIds: new Set(["n-a", "n-b"]),
+    };
+    const kept = evictSources(existing, new Set(["src-a"]));
+    expect(kept.nodes.map((n) => n.id)).toEqual(["n-b"]);
+    expect(kept.facts.map((f) => f.fact_id)).toEqual(["src-b-f0"]);
+    expect(kept.edges).toEqual([]); // the cross edge touched an evicted node
+    expect(kept.views[0].node_ids).toEqual(["n-b"]); // view survives, filtered
+    expect(Object.keys(kept.sources)).toEqual(["src-b"]);
+    expect(sourceOfRefs(ref("src-a"))).toBe("src-a");
+  });
+
+  it("re-describes a MODIFIED source and evicts its stale nodes (no silent staleness)", async () => {
+    const dir = copyDir(MULTI);
+    await compileDeterministic(dir);
+    const before = readBc(dir).graph.nodes;
+    const billingIds = Object.keys(before).filter((id) => id.includes("billing-md"));
+    expect(billingIds.length).toBeGreaterThan(0);
+
+    // Edit an EXISTING source's content, then recompile (auto-incremental).
+    fs.writeFileSync(path.join(dir, "billing.md"), "# Refund policy\nRefunds are issued within 30 days to the original method.");
+    const run = await compileDeterministic(dir);
+    expect(run.validated).toBe(true);
+    expect(run.changedSourceCount).toBe(1);
+    expect(run.newSourceCount).toBe(0);
+
+    const after = readBc(dir).graph.nodes;
+    // The stale billing content is gone; the new content is present and receipted.
+    const afterText = JSON.stringify(Object.values(after));
+    expect(afterText).toMatch(/Refund|Refunds/);
+    expect(afterText).not.toMatch(/past-due invoice/); // old content evicted
+    // The other source's nodes are untouched.
+    expect(Object.keys(after).some((id) => id.includes("invoices-csv"))).toBe(true);
+  });
+
+  it("surfaces a deleted source instead of silently dropping it", async () => {
+    const dir = copyDir(MULTI);
+    await compileDeterministic(dir);
+    fs.rmSync(path.join(dir, "invoices.csv"));
+    const run = await compileDeterministic(dir);
+    expect(run.validated).toBe(true);
+    // Retained in the BC (not silently deleted), and reported.
+    expect(run.deletedSourceIds.some((id) => id.includes("invoices-csv"))).toBe(true);
+    const ingestStage = run.telemetry.stages.find((s) => s.stage === "ingest");
+    expect(JSON.stringify(ingestStage)).toMatch(/deleted from corpus/);
   });
 });

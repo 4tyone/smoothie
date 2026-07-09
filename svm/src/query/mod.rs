@@ -355,6 +355,53 @@ pub fn gaps(bc: &Bc) -> Vec<GapView> {
         .collect()
 }
 
+/// One glossary entry as served from the **BC** (not the substrate index).
+#[derive(Debug, Clone, Serialize)]
+pub struct GlossaryView {
+    pub term: String,
+    pub definition: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub references: Option<Vec<String>>,
+}
+
+/// The BC's glossary (spec 02 · glossary section), optionally one term. Reads from
+/// `bc.glossary` — the substrate `svm glossary` command reads the legacy index, so
+/// this is how you reach a *bytecode's* glossary.
+pub fn glossary(bc: &Bc, term: Option<&str>) -> Vec<GlossaryView> {
+    bc.glossary
+        .iter()
+        .filter(|(t, _)| term.is_none_or(|q| q == t.as_str()))
+        .map(|(t, e)| GlossaryView {
+            term: t.clone(),
+            definition: e.definition.clone(),
+            references: e.references.clone(),
+        })
+        .collect()
+}
+
+/// One note as served from the BC.
+#[derive(Debug, Clone, Serialize)]
+pub struct NoteView {
+    pub key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    pub text: String,
+}
+
+/// The BC's notes (spec 02 · notes section), optionally one key. Includes `gap:*`
+/// notes (also surfaced via `query gaps`) plus any other durable observations.
+pub fn notes(bc: &Bc, key: Option<&str>) -> Vec<NoteView> {
+    bc.notes
+        .iter()
+        .filter(|(k, _)| key.is_none_or(|q| q == k.as_str()))
+        .map(|(k, n)| NoteView {
+            key: k.clone(),
+            kind: n.kind.clone(),
+            text: n.text.clone(),
+        })
+        .collect()
+}
+
 /// List nodes, optionally filtered by fidelity and/or kind (spec 05 · filter by fidelity).
 pub fn nodes(bc: &Bc, fidelity: Option<Fidelity>, kind: Option<&str>) -> Vec<NodeSummary> {
     let mut out: Vec<NodeSummary> = bc

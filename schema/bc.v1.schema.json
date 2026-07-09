@@ -183,7 +183,9 @@
         "checks": { "type": "array", "items": { "$ref": "#/$defs/Check" } },
         "done_when": { "type": "string" },
         "fidelity": { "$ref": "#/$defs/Fidelity" },
-        "source_refs": { "type": "array", "items": { "$ref": "#/$defs/SourceRef" } }
+        "source_refs": { "type": "array", "items": { "$ref": "#/$defs/SourceRef" } },
+        "notice": { "type": "string", "description": "confidentiality (spec 06 §2): a caution surfaced on every read of this node" },
+        "restricted": { "type": "boolean", "description": "read restriction (spec 06 §2): the SVM withholds content on read unless authorized (--reveal); enforced in code" }
       }
     },
 

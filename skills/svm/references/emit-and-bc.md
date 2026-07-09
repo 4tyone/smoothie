@@ -16,8 +16,9 @@ svm emit skill --node n-retry --node n-login --bc $BC --out ./out
 | `--outline <id>` | Emit a slice for a whole outline. |
 | `--node <id>` (repeatable) | Emit a slice for specific nodes. |
 | `--mode read-only\|dry-run\|live` | Execution mode baked into the artifact (default `dry-run`). |
-| `--stdout` / `--out <dir>` | Print, or write a file. |
-| `--json` | Machine-readable emit report (`allow`/`deny` counts + audit). |
+| `--reveal` | Authorize including `restricted` nodes in the slice (refused otherwise). |
+| `--stdout` / `--out <dir>` | Print to stdout, or write into `<dir>`. With neither, the file is written into the **current directory** (`<slug>.spec.ts` / `<slug>.skill.md`). |
+| `--json` | Machine-readable emit report (`allow`/`ask`/`deny` counts + `audit` + `effective` policy). |
 
 **Modes** (the artifact's executor enforces them):
 - `read-only` — read/snapshot, zero mutations. Default for exploring an unknown BC.
@@ -27,8 +28,10 @@ svm emit skill --node n-retry --node n-login --bc $BC --out ./out
 
 The emit report's `effective` block shows the floor-intersected policy (the BC's
 attempts to widen are already neutralized); `audit.entries` shows each step's
-decision (ALLOW/ASK/DENY) and the matched rule. A slice with any hard DENY that can't
-be made safe **refuses to emit**. See safety.md for the floor.
+decision (ALLOW/ASK/DENY) and the matched rule, with secrets redacted. Emit
+**refuses** a slice that has any hard DENY, exceeds the effective budget
+(`max_actions`), or contains a `restricted` node without `--reveal`. See safety.md
+for the floor.
 
 ## BC versioning — `svm bc`
 

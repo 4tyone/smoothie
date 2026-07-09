@@ -77,6 +77,10 @@ enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+
+        /// Authorize including restricted nodes in the emitted artifact
+        #[arg(long)]
+        reveal: bool,
     },
 
     /// Manage a versioned BC (init / history / rollback / show) via the storage port
@@ -270,6 +274,20 @@ enum QueryCommands {
         #[command(flatten)]
         opts: BcOpts,
     },
+    /// The BC's glossary (all terms, or one). Reads the bytecode, not the index.
+    Glossary {
+        /// A single term to look up (default: list all)
+        term: Option<String>,
+        #[command(flatten)]
+        opts: BcOpts,
+    },
+    /// The BC's notes (all, or one key). Includes gap:* notes plus observations.
+    Notes {
+        /// A single note key to look up (default: list all)
+        key: Option<String>,
+        #[command(flatten)]
+        opts: BcOpts,
+    },
     /// Bounded breadth-first traversal from a node
     Traverse {
         from: String,
@@ -412,6 +430,8 @@ fn main() -> ExitCode {
                 opts.json,
             ),
             QueryCommands::Gaps { opts } => query_cmd::gaps(opts.bc.as_deref(), opts.json),
+            QueryCommands::Glossary { term, opts } => query_cmd::glossary(opts.bc.as_deref(), term.as_deref(), opts.json),
+            QueryCommands::Notes { key, opts } => query_cmd::notes(opts.bc.as_deref(), key.as_deref(), opts.json),
             QueryCommands::Traverse {
                 from,
                 kind,
@@ -429,6 +449,7 @@ fn main() -> ExitCode {
             stdout,
             bc,
             json,
+            reveal,
         } => emit_cmd::run(
             bc.as_deref(),
             &target,
@@ -438,6 +459,7 @@ fn main() -> ExitCode {
             out.as_deref(),
             stdout,
             json,
+            reveal,
         ),
 
         Commands::Bc { command } => match command {

@@ -78,6 +78,28 @@ pub fn gaps(bc: Option<&Path>, json: bool) -> Result<()> {
     Ok(())
 }
 
+pub fn glossary(bc: Option<&Path>, term: Option<&str>, json: bool) -> Result<()> {
+    let loaded = load::open(bc)?;
+    let result = query::glossary(&loaded.bc, term);
+    if json {
+        println!("{}", serde_json::to_string_pretty(&result).unwrap_or_default());
+    } else {
+        print!("{}", display::GlossaryList(&result));
+    }
+    Ok(())
+}
+
+pub fn notes(bc: Option<&Path>, key: Option<&str>, json: bool) -> Result<()> {
+    let loaded = load::open(bc)?;
+    let result = query::notes(&loaded.bc, key);
+    if json {
+        println!("{}", serde_json::to_string_pretty(&result).unwrap_or_default());
+    } else {
+        print!("{}", display::NoteList(&result));
+    }
+    Ok(())
+}
+
 pub fn traverse(
     bc: Option<&Path>,
     from: &str,

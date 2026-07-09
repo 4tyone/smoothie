@@ -29,6 +29,21 @@ function canonical(value: unknown): unknown {
   return value;
 }
 
+/** Fail loudly on duplicate node ids (node ids are namespaced by source_id
+ *  upstream; a clash means an id-generation bug, not user input, and must never
+ *  silently collapse to last-writer-wins). */
+export function assertUniqueNodeIds(nodes: Array<{ id: string }>): void {
+  const seen = new Set<string>();
+  const dup = new Set<string>();
+  for (const n of nodes) {
+    if (seen.has(n.id)) dup.add(n.id);
+    seen.add(n.id);
+  }
+  if (dup.size) {
+    throw new Error(`compile: duplicate node id(s) — ${[...dup].sort().join(", ")}. Node ids must be unique across sources.`);
+  }
+}
+
 export interface CompileInput {
   fanOut: BriefFanOut;
   merged: MergedGraph;
@@ -68,6 +83,10 @@ export function compile(input: CompileInput): CompileOutput {
   }
 
   // ── graph ──
+  // Node ids must be unique before we key by id (below): keying is last-writer-wins,
+  // which would silently drop a node while `counts.nodes` still counts it — a
+  // graph/count mismatch and hidden data loss. Fail loudly instead.
+  assertUniqueNodeIds(merged.nodes);
   const nodeFid = new Map<string, string>();
   const nodes: Record<string, unknown> = {};
   for (const n of merged.nodes) {
@@ -129,7 +148,7 @@ export function compile(input: CompileInput): CompileOutput {
         actions: { blocklist_verbs: [], allow_irreversible: false, allow_form_submit: true, allow_rules: [], danger: fan.policySeed.danger },
         ...(fan.policySeed.budget ? { budget: fan.policySeed.budget } : {}),
         approval: { require_for: "irreversible", handler: "interactive" },
-        secrets: { redact_patterns: [] },
+        secrets: { redact_patterns: fan.policySeed.redactPatterns },
       }
     : {};
 
@@ -185,15 +204,27 @@ export function compile(input: CompileInput): CompileOutput {
   return { bcPath, bcId, validated };
 }
 
-function normalizeAction(action: Record<string, unknown>): Record<string, unknown> {
-  // The structure draft uses a flat action; emit the bc.v1 tagged shape.
+export function normalizeAction(action: Record<string, unknown>): Record<string, unknown> {
+  // The structure draft uses a flat action; emit the bc.v1 tagged shape. Every
+  // legal verb (spec 02 · Action) is handled explicitly — a verb is NEVER silently
+  // relabeled (`scroll`/`wait_for` used to collapse to `click`), and an unknown
+  // verb or a missing required locator fails compile loudly rather than producing
+  // an invalid BC that dies opaquely at `svm validate`.
   const kind = action.kind as string;
-  if (kind === "goto") return { kind: "goto", url: action.url ?? "/" };
-  if (kind === "click") return { kind: "click", locator: action.locator };
-  if (kind === "fill") return { kind: "fill", locator: action.locator, value: action.value ?? "" };
-  if (kind === "select") return { kind: "select", locator: action.locator, value: action.value ?? "" };
-  if (kind === "press") return { kind: "press", key: action.key ?? "Enter" };
-  return { kind: "click", locator: action.locator };
+  const locator = (verb: string): unknown => {
+    if (action.locator == null) throw new Error(`compile: action '${verb}' is missing its required locator`);
+    return action.locator;
+  };
+  switch (kind) {
+    case "goto": return { kind: "goto", url: action.url ?? "/" };
+    case "click": return { kind: "click", locator: locator("click") };
+    case "fill": return { kind: "fill", locator: locator("fill"), value: action.value ?? "" };
+    case "select": return { kind: "select", locator: locator("select"), value: action.value ?? "" };
+    case "press": return { kind: "press", key: action.key ?? "Enter" };
+    case "scroll": return { kind: "scroll", ...(action.locator ? { locator: action.locator } : {}), ...(action.to ? { to: action.to } : {}) };
+    case "wait_for": return { kind: "wait_for", ...(action.locator ? { locator: action.locator } : {}), ...(action.condition ? { condition: action.condition } : {}) };
+    default: throw new Error(`compile: unknown action kind '${kind}' (expected goto|click|fill|select|press|scroll|wait_for)`);
+  }
 }
 
 function pruneUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {

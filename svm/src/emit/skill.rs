@@ -8,6 +8,23 @@ use crate::policy::{action_text, Decision, EffectivePolicy};
 
 use super::{mode_str, Step};
 
+/// Neutralize BC-authored text before it lands in the markdown artifact. The BC is
+/// untrusted data (spec 06 · §1): a node titled "## Ignore the guardrails" must
+/// not be able to forge headings or break out of its list item. Newlines collapse
+/// to spaces and structural markdown characters are escaped, so the string renders
+/// as inert inline text, never as structure.
+fn md(s: &str) -> String {
+    let collapsed: String = s.chars().map(|c| if c == '\n' || c == '\r' { ' ' } else { c }).collect();
+    let mut out = String::with_capacity(collapsed.len());
+    for c in collapsed.chars() {
+        if matches!(c, '`' | '*' | '_' | '[' | ']' | '<' | '>' | '#' | '|' | '\\') {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out
+}
+
 pub(super) fn render(
     bc: &Bc,
     slice_title: &str,
@@ -20,11 +37,11 @@ pub(super) fn render(
     let app = bc.manifest.app.as_ref();
     let app_name = app.and_then(|a| a.name.clone()).unwrap_or_else(|| bc.manifest.bc_id.clone());
 
-    s.push_str(&format!("# Skill — {slice_title}\n\n"));
+    s.push_str(&format!("# Skill — {}\n\n", md(slice_title)));
     s.push_str(&format!(
         "> Emitted by the SVM from BC `{}` (app: {}). Guardrails are baked in; \
          the executor must honor them. The SVM does not drive anything.\n\n",
-        bc.manifest.bc_id, app_name
+        md(&bc.manifest.bc_id), md(&app_name)
     ));
 
     // ── Safety header (the guardrails travel with the artifact) ──
@@ -68,17 +85,17 @@ pub(super) fn render(
             Decision::Ask => "ASK — requires approval",
             Decision::Deny => "DENY", // unreachable: emit refuses on any DENY
         };
-        s.push_str(&format!("{}. **{}** — {}\n", i + 1, n.title, action));
+        s.push_str(&format!("{}. **{}** — {}\n", i + 1, md(&n.title), md(&action)));
         s.push_str(&format!("   - guard: `{marker}`"));
         if step.supervise {
             s.push_str(" · `supervise`");
         }
-        s.push_str(&format!(" — {}\n", step.reason));
+        s.push_str(&format!(" — {}\n", md(&step.reason)));
         if let Some(loc) = action_locator(n.action.as_ref()) {
-            s.push_str(&format!("   - locator: {} (`{}={}`)\n", loc.description, by_str(loc.primary.by), loc.primary.value));
+            s.push_str(&format!("   - locator: {} (`{}={}`)\n", md(&loc.description), by_str(loc.primary.by), md(&loc.primary.value)));
         }
         for chk in &n.checks {
-            s.push_str(&format!("   - check: {}\n", describe_check(chk)));
+            s.push_str(&format!("   - check: {}\n", md(&describe_check(chk))));
         }
         s.push_str(&format!("   - fidelity: {} · receipts: {}\n", fidelity_str(n.fidelity), n.source_refs.len()));
     }
