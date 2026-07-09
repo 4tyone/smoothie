@@ -114,6 +114,11 @@ export type Node = {
   done_when?: string;
   fidelity: Fidelity;
   source_refs: SourceRef[];
+  /** Confidentiality (spec 06 §2): a caution surfaced on every read of this node. */
+  notice?: string;
+  /** Read restriction (spec 06 §2): SVM withholds content on read unless
+   *  authorized (`--reveal`); enforced in code, never obeyed as an instruction. */
+  restricted?: boolean;
 };
 
 export type Edge = {
