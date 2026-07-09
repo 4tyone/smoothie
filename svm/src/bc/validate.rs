@@ -151,6 +151,12 @@ fn check_receipts(bc: &Bc, base_dir: Option<&Path>, report: &mut ValidationRepor
         if fact.source_refs.is_empty() {
             report.push("receipt", &loc, "fact has no source_refs (receipts must be non-empty)");
         }
+        // `confidence` is a probability — the contract bounds it to [0, 1]
+        // (bc.v1.schema.json). Enforce on read so a producer bug can't smuggle an
+        // out-of-range value the schema would reject.
+        if !(0.0..=1.0).contains(&fact.confidence) || fact.confidence.is_nan() {
+            report.push("schema", &loc, &format!("confidence {} out of range [0, 1]", fact.confidence));
+        }
         for sr in &fact.source_refs {
             resolve_ref(sr, &loc, report);
         }
@@ -195,21 +201,33 @@ fn check_receipts(bc: &Bc, base_dir: Option<&Path>, report: &mut ValidationRepor
         }
     }
 
-    // Companion files referenced by sources must exist on disk (when we know the dir).
+    // Companion files referenced by sources must exist on disk (when we know the
+    // dir) AND stay inside the BC directory. A hostile BC must not point a receipt
+    // outside its bundle — that both breaks self-containment and turns validation
+    // into a filesystem-existence probe (`../../../../etc/passwd`).
     if let Some(dir) = base_dir {
         for (id, source) in &bc.sources {
             for (j, comp) in source.companions.iter().enumerate() {
-                let p = dir.join(&comp.path);
-                if !p.exists() {
-                    report.push(
-                        "receipt",
-                        format!("sources[{id}].companions[{j}]"),
-                        format!("companion file does not exist on disk: {}", comp.path),
-                    );
+                let loc = format!("sources[{id}].companions[{j}]");
+                if !is_contained(&comp.path) {
+                    report.push("receipt", &loc, format!("companion path escapes the BC directory: {}", comp.path));
+                    continue;
+                }
+                if !dir.join(&comp.path).exists() {
+                    report.push("receipt", &loc, format!("companion file does not exist on disk: {}", comp.path));
                 }
             }
         }
     }
+}
+
+/// A companion path must be relative and never traverse upward — it is resolved
+/// against the (trusted) BC directory, so `..`/absolute paths are rejected before
+/// they ever touch the filesystem.
+fn is_contained(rel: &str) -> bool {
+    let p = Path::new(rel);
+    !p.is_absolute()
+        && !p.components().any(|c| matches!(c, std::path::Component::ParentDir | std::path::Component::Prefix(_)))
 }
 
 // ─── Gate 2: honest fidelity ─────────────────────────────────────────────────

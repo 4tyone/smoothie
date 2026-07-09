@@ -145,3 +145,29 @@ fn rejects_bad_schema_version() {
         codes(&report)
     );
 }
+
+#[test]
+fn rejects_companion_path_escaping_the_bc_dir() {
+    // A hostile BC must not point a companion receipt outside its bundle — that
+    // breaks self-containment and turns validation into a filesystem probe.
+    let (success, report) = run_validate(&fixture("escaping-companion.json"));
+    assert!(!success, "a companion path traversing outside the BC dir must be rejected");
+    assert!(
+        codes(&report).contains(&"receipt".to_string()),
+        "expected a 'receipt' violation, got {:?}",
+        codes(&report)
+    );
+}
+
+#[test]
+fn rejects_confidence_out_of_range() {
+    // `confidence` is a probability; the contract bounds it to [0, 1]. A producer
+    // bug emitting 5.0 must be rejected on read, not served.
+    let (success, report) = run_validate(&fixture("confidence-out-of-range.json"));
+    assert!(!success, "a fact confidence outside [0, 1] must be rejected");
+    assert!(
+        codes(&report).contains(&"schema".to_string()),
+        "expected a 'schema' violation, got {:?}",
+        codes(&report)
+    );
+}

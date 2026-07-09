@@ -37,6 +37,7 @@ pub fn run(
     out_dir: Option<&Path>,
     stdout: bool,
     json: bool,
+    reveal: bool,
 ) -> Result<()> {
     let target = Target::parse(target)?;
     let mode = emit::parse_mode(mode)?;
@@ -53,7 +54,7 @@ pub fn run(
 
     let loaded = load::open(bc)?;
     let vault = Vault::new();
-    let artifact = emit::emit(&loaded.bc, &spec, target, mode, &vault)?;
+    let artifact = emit::emit(&loaded.bc, &spec, target, mode, &vault, reveal)?;
     let (allow, ask, deny) = artifact.audit.counts();
 
     // Write the artifact (the one side effect), unless --stdout.

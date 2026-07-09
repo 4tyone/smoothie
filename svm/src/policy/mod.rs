@@ -52,8 +52,9 @@ pub struct EffectivePolicy {
     pub allow_irreversible: bool,
     /// BC danger escalations (a BC may raise severity, e.g. mark `delete` a hard block).
     pub danger: Vec<DangerRule>,
-    /// BC allow-rules (only effective *within* the floor — they cannot unblock a
-    /// dangerous verb).
+    /// BC allow-rules — carried for audit visibility only. An untrusted BC's
+    /// allow rules never loosen a decision (mutations stay gated regardless);
+    /// they are reserved for a future locally-supplied (trusted) policy.
     pub allow_rules: Vec<AllowRule>,
     /// min(floor, bc) per dimension.
     pub max_actions: u64,
@@ -218,18 +219,26 @@ pub fn classify(node: &Node, eff: &EffectivePolicy) -> Classification {
         _ => {}
     }
 
-    // 5. Mutations: allow-listed → ALLOW; otherwise deny-by-default → ASK (gated).
+    // 5. Mutations are deny-by-default → ASK (gated). A BC-embedded allow rule
+    //    can NEVER loosen this to ALLOW: the BC is untrusted input and the floor
+    //    only tightens (spec 06 · the floor). A matching rule is recorded in the
+    //    reason for the audit trail, but the decision stays ASK.
     if let Some(rule) = eff.allow_rules.iter().find(|r| glob_match(&r.pattern.to_lowercase(), &hay)) {
-        return allow_ruled(node, &format!("allow rule: {}", rule.reason), &rule.pattern);
+        return ask(
+            node,
+            &format!(
+                "mutation gated (deny-by-default); BC allow rule {:?} recorded but a BC policy cannot loosen the floor",
+                rule.pattern
+            ),
+            Some("floor.deny_by_default"),
+            false,
+        );
     }
     ask(node, "mutation not provably reversible — gated (deny-by-default)", Some("floor.deny_by_default"), false)
 }
 
 fn allow(node: &Node, reason: &str) -> Classification {
     Classification { node_id: node.id.clone(), decision: Decision::Allow, reason: reason.into(), matched_rule: None, supervise: false }
-}
-fn allow_ruled(node: &Node, reason: &str, rule: &str) -> Classification {
-    Classification { node_id: node.id.clone(), decision: Decision::Allow, reason: reason.into(), matched_rule: Some(rule.into()), supervise: false }
 }
 fn ask(node: &Node, reason: &str, rule: Option<&str>, supervise: bool) -> Classification {
     Classification { node_id: node.id.clone(), decision: Decision::Ask, reason: reason.into(), matched_rule: rule.map(Into::into), supervise }

@@ -51,11 +51,30 @@ impl GitBcStore {
         Self { dir: dir.into() }
     }
 
-    /// Create a `.smoothie/` store at `dir`, copy `source_bc` into it as
-    /// `bc.json`, validate it, `git init`, and make the first revision.
+    /// Create a `.smoothie/` store at `dir`, copy `source_bc` (and its
+    /// companions) into it, validate it, `git init`, and make the first revision.
     pub fn init(dir: impl Into<PathBuf>, source_bc: &Path) -> Result<Self> {
         let dir = dir.into();
-        std::fs::create_dir_all(&dir)?;
+        let created = !dir.exists();
+        match Self::init_inner(&dir, source_bc) {
+            Ok(()) => Ok(Self { dir }),
+            Err(e) => {
+                // Never leave a half-created store behind (only if we made it).
+                if created {
+                    let _ = std::fs::remove_dir_all(&dir);
+                }
+                Err(e)
+            }
+        }
+    }
+
+    fn init_inner(dir: &Path, source_bc: &Path) -> Result<()> {
+        // Validate the source in place first — never version an invalid BC.
+        // Companion paths resolve against the source's own directory here.
+        let loaded = load_bc(source_bc)?;
+        let src_dir = source_bc.parent().unwrap_or(Path::new("."));
+
+        std::fs::create_dir_all(dir)?;
         let dest = dir.join(BC_FILENAME);
         std::fs::copy(source_bc, &dest).map_err(|e| {
             SmoothieError::General(format!(
@@ -64,13 +83,44 @@ impl GitBcStore {
                 dest.display()
             ))
         })?;
-        // Validate before we record it — never version an invalid BC.
-        load_bc(&dest)?;
-        if git::get_current_commit_hash(&dir).unwrap_or_default().is_empty() {
-            git::git_init(&dir)?;
+
+        // Copy companions so the store is self-contained and still validates
+        // (receipts must resolve against the store dir, spec 02).
+        for source in loaded.bc.sources.values() {
+            for comp in &source.companions {
+                let rel = Path::new(&comp.path);
+                if rel.is_absolute()
+                    || rel.components().any(|c| matches!(c, std::path::Component::ParentDir))
+                {
+                    return Err(SmoothieError::General(format!(
+                        "companion path {:?} escapes the BC directory — refusing to init",
+                        comp.path
+                    )));
+                }
+                let to = dir.join(rel);
+                if let Some(parent) = to.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                std::fs::copy(src_dir.join(rel), &to).map_err(|e| {
+                    SmoothieError::General(format!(
+                        "cannot copy companion {:?} into the store: {e}",
+                        comp.path
+                    ))
+                })?;
+            }
         }
-        git::git_commit(&dir, "svm: add bc.json")?;
-        Ok(Self { dir })
+
+        // Re-validate at the destination — the store must stand on its own.
+        load_bc(&dest)?;
+
+        // The store's repo must live in `dir` itself. Checking HEAD would resolve
+        // an *enclosing* repo and skip init — landing revisions on the user's
+        // project history — so check for `dir/.git` directly.
+        if !dir.join(".git").exists() {
+            git::git_init(dir)?;
+        }
+        git::git_commit(dir, "svm: add bc.json")?;
+        Ok(())
     }
 
     fn bc_path(&self) -> PathBuf {

@@ -8,11 +8,13 @@ pub fn merge_entries(
     new_ref: &LineRef,
     new_description: &str,
 ) -> CacheEntry {
-    // Parse existing reference
-    let existing_ref = LineRef::parse(&existing.reference).unwrap();
-
-    // Merge ranges
-    let merged_ref = existing_ref.merge_with(new_ref);
+    // Merge ranges. `existing.reference` is read from an on-disk index that could
+    // be corrupt or hand-edited — if it doesn't parse, don't panic: fall back to
+    // the new ref alone rather than crashing the whole run.
+    let merged_ref = match LineRef::parse(&existing.reference) {
+        Ok(existing_ref) => existing_ref.merge_with(new_ref),
+        Err(_) => new_ref.clone(),
+    };
 
     // Keep the longer/more descriptive description
     let description = if new_description.len() > existing.description.len() {

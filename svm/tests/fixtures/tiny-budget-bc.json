@@ -1,0 +1,43 @@
+{
+  "schema": "bc.v1",
+  "manifest": {
+    "bc_id": "bc-tiny-budget",
+    "profile": "web-app",
+    "app": { "name": "Safe App", "base_url": "https://safe.example.com", "allowed_origins": ["https://safe.example.com"] },
+    "producer": { "name": "smoothie", "version": "0.0.0-test" },
+    "created_at": "2026-06-29T00:00:00Z",
+    "updated_at": "2026-06-29T00:00:00Z",
+    "counts": { "sources": 1, "facts": 0, "nodes": 2, "edges": 0, "views": 0, "outlines": 0 }
+  },
+  "sources": {
+    "s1": { "source_id": "s1", "kind": "pdf", "companions": [] }
+  },
+  "graph": {
+    "nodes": {
+      "n-home": {
+        "id": "n-home",
+        "title": "Open the home screen",
+        "summary": "Navigate to the home screen.",
+        "kind": "screen",
+        "action": { "kind": "goto", "url": "https://safe.example.com/" },
+        "checks": [],
+        "fidelity": "claimed",
+        "source_refs": [ { "source_id": "s1", "span": { "kind": "doc", "page": 1 } } ]
+      },
+      "n-settings": {
+        "id": "n-settings",
+        "title": "Open the settings screen",
+        "summary": "Navigate to the settings screen.",
+        "kind": "screen",
+        "action": { "kind": "goto", "url": "https://safe.example.com/settings" },
+        "checks": [],
+        "fidelity": "claimed",
+        "source_refs": [ { "source_id": "s1", "span": { "kind": "doc", "page": 2 } } ]
+      }
+    },
+    "edges": []
+  },
+  "policy": {
+    "budget": { "max_actions": 1 }
+  }
+}

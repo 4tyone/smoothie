@@ -87,6 +87,35 @@ fn gaps_are_surfaced_not_faked() {
 }
 
 #[test]
+fn glossary_is_served_from_the_bc() {
+    // The BC's own glossary is reachable via `query` (the legacy `svm glossary`
+    // reads the substrate index and would error on a BC-only .smoothie/).
+    let all = query(&["glossary"]);
+    let arr = all.as_array().unwrap();
+    assert_eq!(arr.len(), 1);
+    assert_eq!(arr[0]["term"], "dunning");
+    assert!(arr[0]["definition"].as_str().unwrap().contains("failed payments"));
+    // One-term lookup filters.
+    let one = query(&["glossary", "dunning"]);
+    assert_eq!(one.as_array().unwrap().len(), 1);
+    assert_eq!(query(&["glossary", "nope"]).as_array().unwrap().len(), 0);
+}
+
+#[test]
+fn notes_serve_more_than_gaps() {
+    // `query notes` returns ALL notes — including the non-gap `decision:` note that
+    // `query gaps` (gap:* only) never surfaces.
+    let all = query(&["notes"]);
+    let keys: Vec<&str> = all.as_array().unwrap().iter().map(|n| n["key"].as_str().unwrap()).collect();
+    assert!(keys.contains(&"gap:refund-confirmation"));
+    assert!(keys.contains(&"decision:prefer-video"), "non-gap notes must be reachable: {keys:?}");
+    // One-key lookup.
+    let one = query(&["notes", "decision:prefer-video"]);
+    assert_eq!(one.as_array().unwrap().len(), 1);
+    assert!(one.as_array().unwrap()[0]["text"].as_str().unwrap().contains("walkthrough"));
+}
+
+#[test]
 fn traverse_reaches_the_graph_deterministically() {
     let a = query(&["traverse", "n-login", "--depth", "3"]);
     let b = query(&["traverse", "n-login", "--depth", "3"]);
