@@ -63,8 +63,11 @@ fn init_inside_an_enclosing_git_repo_creates_its_own_store_repo() {
         assert!(out.status.success(), "git {:?} failed: {}", args, String::from_utf8_lossy(&out.stderr));
         String::from_utf8_lossy(&out.stdout).to_string()
     };
-    // An enclosing project repo with one commit.
+    // An enclosing project repo with one commit. Set a repo-local identity so the
+    // fixture commit works where no global git user is configured (CI runners).
     run(&["init"], tmp.path());
+    run(&["config", "user.email", "test@smoothie.local"], tmp.path());
+    run(&["config", "user.name", "Smoothie Test"], tmp.path());
     std::fs::write(tmp.path().join("README.md"), "project").unwrap();
     run(&["add", "."], tmp.path());
     run(&["commit", "-m", "project commit"], tmp.path());
