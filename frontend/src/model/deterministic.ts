@@ -53,12 +53,18 @@ function detStructure(ctx: {
   profile: string;
   sourceId: string;
   urlPatterns: string[];
+  goals?: Array<{ id: string; text: string }>;
   facts: Array<{ fact_id: string; kind: string; text: string; action_draft?: { verb: string; target: string } }>;
 }): v.InferOutput<typeof StructureResult> {
   const webApp = ctx.profile === "web-app";
   const viewId = `v-${ctx.sourceId}`;
+  // Deterministic stand-in for the model's semantic goal-tagging: round-robin nodes
+  // across the goals so scenes are non-trivially scoped (the real model judges by
+  // meaning — this fake just needs to be stable and exercise the plumbing).
+  const goals = ctx.goals ?? [];
+  const goalFor = (i: number): string[] => (goals.length ? [goals[i % goals.length].id] : []);
 
-  const nodes = ctx.facts.map((f) => {
+  const nodes = ctx.facts.map((f, i) => {
     const id = `n-${f.fact_id}`;
     if (webApp && f.kind === "action" && f.action_draft) {
       const target = f.action_draft.target || f.text;
@@ -69,14 +75,14 @@ function detStructure(ctx: {
           ? { kind: "goto" as const, url: ctx.urlPatterns[0] ?? "/" }
           : { kind: "click" as const, locator: { description: target, primary: { by: "text" as const, value: target.slice(0, 40) }, fallbacks: [] } },
         checks: [{ kind: "url_matches" as const, expected: ctx.urlPatterns[0] ?? "/" }],
-        fidelity: "claimed" as const,
+        fidelity: "claimed" as const, goal_ids: goalFor(i),
       };
     }
     return {
       id, title: f.text.slice(0, 60), summary: f.text,
       kind: (webApp ? "feature" : "topic") as "feature" | "topic",
       view_id: webApp ? viewId : undefined, fact_ids: [f.fact_id],
-      checks: [], fidelity: "claimed" as const,
+      checks: [], fidelity: "claimed" as const, goal_ids: goalFor(i),
     };
   });
 
@@ -114,6 +120,23 @@ function detLink(ctx: {
   return { view_merges: [], induced_edges: induced, orphans: [] };
 }
 
+/** Deterministic `judge` — the CI stand-in for a resolver's semantic yes/no. It
+ *  takes the FIRST string field as the claim and the rest as evidence, and answers
+ *  yes when the claim's tokens are well-covered by the evidence (corroboration or
+ *  support). Purely reproducible; the real gateway uses the model instead. */
+function detJudge(content: string): { yes: boolean } {
+  let obj: Record<string, unknown>;
+  try { obj = JSON.parse(content) as Record<string, unknown>; } catch { return { yes: false }; }
+  const strs = Object.values(obj).filter((x): x is string => typeof x === "string");
+  if (strs.length < 2) return { yes: false };
+  const claimToks = new Set(strs[0].toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 2));
+  if (claimToks.size === 0) return { yes: false };
+  const evidence = strs.slice(1).join(" ").toLowerCase();
+  let hit = 0;
+  for (const t of claimToks) if (evidence.includes(t)) hit++;
+  return { yes: hit / claimToks.size >= 0.6 };
+}
+
 export class DeterministicModelGateway implements ModelGateway {
   readonly kind = "stub" as const;
 
@@ -128,6 +151,12 @@ export class DeterministicModelGateway implements ModelGateway {
     if (req.label.startsWith("link")) {
       const ctx = JSON.parse(req.content) as Parameters<typeof detLink>[0];
       return v.parse(req.schema, detLink(ctx));
+    }
+    if (req.label.startsWith("judge")) {
+      // The deterministic stand-in for a resolver's semantic judgment. Lexical
+      // token-coverage lives HERE (a CI harness that must be reproducible), NOT in
+      // the shipping resolvers — the real gateway answers with the model.
+      return v.parse(req.schema, detJudge(req.content));
     }
     throw new Error(`DeterministicModelGateway: no responder for label '${req.label}'`);
   }

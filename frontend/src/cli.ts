@@ -12,6 +12,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { runCompile } from "./pipeline.ts";
+import { loadConfig, type SmoothieConfig } from "./config.ts";
 import { DeterministicModelGateway } from "./model/deterministic.ts";
 import type { ModelGateway } from "./model/gateway.ts";
 
@@ -29,12 +30,14 @@ function resolveSvmBin(): string {
   return "svm"; // fall back to PATH
 }
 
-async function makeGateway(deterministic: boolean): Promise<ModelGateway> {
+async function makeGateway(deterministic: boolean, model?: SmoothieConfig["model"]): Promise<ModelGateway> {
   // The REAL model is the default. `--deterministic` selects the model-free CI
   // determinism harness (never a substitute for real extraction).
   if (deterministic) return new DeterministicModelGateway();
   const { RealModelGateway } = await import("./model/real.ts");
-  return RealModelGateway.create();
+  // Pass the config's model block so any provider (not just Pi's login) can be
+  // driven with its own key: `default` picks the model, `providers` supplies creds.
+  return RealModelGateway.create({ defaultModel: model?.default, providers: model?.providers });
 }
 
 /** Where the credential is stored — the dir the compiler's bridge searches. */
@@ -139,13 +142,34 @@ async function cmdPreprocess(argv: string[]): Promise<number> {
   return bad ? 1 : 0;
 }
 
+/** Load a `.env` file (folder's first, then CWD) into `process.env` so API keys
+ *  named by `model.providers.*.api_key_env` live OUTSIDE the git-tracked config.
+ *  Existing environment variables win — an already-exported key is not overwritten. */
+function loadDotEnv(folder: string): void {
+  for (const dir of [folder, process.cwd()]) {
+    const file = path.join(dir, ".env");
+    if (!fs.existsSync(file)) continue;
+    try {
+      // Node ≥20.12 parses .env without overwriting already-set vars.
+      (process as { loadEnvFile(p: string): void }).loadEnvFile(file);
+    } catch { /* malformed .env — ignore; a missing key surfaces as a clear gateway error */ }
+  }
+}
+
 async function cmdCompile(argv: string[]): Promise<number> {
   const deterministic = argv.includes("--deterministic");
+  // --full forces a from-scratch recompile (structure + link re-run over every
+  // source) instead of weaving only new/changed sources into the existing BC.
+  // describe stays cached (keyed by content hash), so only the model stages re-run —
+  // the way to regenerate the graph after a model/config change (spec 03).
+  const full = argv.includes("--full");
   const folder = argv.find((a) => !a.startsWith("--"));
   if (!folder) {
-    console.error("usage: smoothie compile <folder> [--deterministic] [--resolve[=name,...]]");
+    console.error("usage: smoothie compile <folder> [--deterministic] [--full] [--resolve[=name,...]]");
     return 2;
   }
+  // Bring `.env` keys into the environment before the gateway resolves credentials.
+  if (!deterministic) loadDotEnv(path.resolve(folder));
   // --resolve runs the verify stage (promote claimed→confirmed). `--resolve`
   // alone runs the offline Resolvers; `--resolve=cross-source` picks specific ones.
   const resolveArg = argv.find((a) => a === "--resolve" || a.startsWith("--resolve="));
@@ -153,8 +177,14 @@ async function cmdCompile(argv: string[]): Promise<number> {
     ? (resolveArg.includes("=") ? resolveArg.split("=")[1].split(",") : ["re-examine", "cross-source"])
     : undefined;
 
-  const gateway = await makeGateway(deterministic);
-  const run = await runCompile(path.resolve(folder), { gateway, svmBin: resolveSvmBin(), resolvers });
+  // Read the config's model block up front so the gateway can wire per-provider
+  // credentials (loadConfig is a cheap file read; runCompile re-reads it too).
+  let modelCfg: SmoothieConfig["model"];
+  if (!deterministic) {
+    try { modelCfg = loadConfig(path.resolve(folder)).config.model; } catch { /* runCompile surfaces the config error */ }
+  }
+  const gateway = await makeGateway(deterministic, modelCfg);
+  const run = await runCompile(path.resolve(folder), { gateway, svmBin: resolveSvmBin(), resolvers, ...(full ? { incremental: false } : {}) });
   console.error(
     `✓ compiled ${folder} → ${run.bcPath}\n` +
       `  bc_id: ${run.bcId} · model: ${gateway.kind} · validated: ${run.validated}\n` +
@@ -176,7 +206,7 @@ async function main(argv: string[]): Promise<number> {
   console.error(
     "smoothie — the multimodal data compiler frontend.\n" +
       "  smoothie login                               sign in with your ChatGPT subscription (once)\n" +
-      "  smoothie compile <folder> [--deterministic]  ingest→describe→structure→compile → bc.json\n" +
+      "  smoothie compile <folder> [--deterministic] [--full]  ingest→describe→structure→link→compile → bc.json\n" +
       "  smoothie preprocess --check <folder>         dry-run: show each source's resolved processor\n" +
       "  smoothie skills install [folder]             copy built-in reader skills to .smoothie/skills/\n" +
       "  (the bundled `svm` consumes the BC: `svm query`, `svm emit`)",
@@ -184,4 +214,10 @@ async function main(argv: string[]): Promise<number> {
   return cmd ? 2 : 0;
 }
 
-main(process.argv).then((code) => process.exit(code));
+main(process.argv)
+  .then((code) => process.exit(code))
+  .catch((e: unknown) => {
+    // A clean one-line error, not a raw stack trace / unhandled-rejection dump.
+    process.stderr.write(`smoothie: ${(e as Error)?.message ?? String(e)}\n`);
+    process.exit(1);
+  });

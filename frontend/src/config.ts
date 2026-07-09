@@ -38,6 +38,19 @@ const StageConfig = v.object({
   thinking: v.optional(v.picklist(ThinkingLevels)),
 });
 
+/** Credentials for ONE model provider, declared in-config so Smoothie is not tied
+ *  to a single Pi login (spec 07 · model — model-agnostic by construction). Give a
+ *  key inline (`api_key`), name an env var to read it from (`api_key_env`, the
+ *  safe default — no secret in the file), and/or override the endpoint
+ *  (`base_url`). Omit all three and the provider's own conventional env var is used
+ *  (e.g. `ZAI_API_KEY` for `zai`), resolved by pi-ai. */
+const ProviderAuth = v.object({
+  api_key: v.optional(v.string()),
+  api_key_env: v.optional(v.string()),
+  base_url: v.optional(v.string()),
+});
+export type ProviderAuth = v.InferOutput<typeof ProviderAuth>;
+
 /** The Brief proper — the directive that shapes the compile (spec 02 · Brief). */
 const BriefSection = v.object({
   intent: v.pipe(v.string(), v.minLength(1)),
@@ -63,6 +76,9 @@ const BriefSection = v.object({
     budget: v.optional(v.object({
       max_actions: v.optional(v.number()),
       max_pages: v.optional(v.number()),
+    })),
+    secrets: v.optional(v.object({
+      redact_patterns: v.optional(v.array(v.string())),
     })),
   })),
   glossary: v.optional(v.array(GlossarySeed)),
@@ -119,8 +135,14 @@ export const SmoothieConfig = v.object({
   version: v.literal("smoothie.config.v1"),
   profile: v.string(),
   brief: BriefSection,
-  /** Global model selection; a stage may override it (see `stages`). */
-  model: v.optional(v.object({ default: v.optional(v.string()) })),
+  /** Global model selection + per-provider credentials. `default` is the
+   *  `provider/modelId` used when a stage sets no override; `providers` maps a
+   *  provider id (e.g. `zai`, `openai`, `anthropic`) to its credentials so any
+   *  provider can be driven with its own key — not just the one Pi is logged into. */
+  model: v.optional(v.object({
+    default: v.optional(v.string()),
+    providers: v.optional(v.record(v.string(), ProviderAuth)),
+  })),
   /** Per-stage model + thinking budget. Omitted stages use the defaults below. */
   stages: v.optional(v.object({
     describe: v.optional(StageConfig),
@@ -200,7 +222,7 @@ export interface BriefFanOut {
   app?: { name?: string; base_url?: string; allowed_origins?: string[] }; // → manifest.app (web-app)
   authorship?: { author?: string; organization?: string };
   glossary: Record<string, { definition: string }>;
-  policySeed: { danger: Array<{ match: string; level: string; reason: string }>; budget?: { max_actions?: number; max_pages?: number } };
+  policySeed: { danger: Array<{ match: string; level: string; reason: string }>; budget?: { max_actions?: number; max_pages?: number }; redactPatterns: string[] };
   /** Resolvers to run at the resolve stage (from `verify.resolvers`); empty → no-op. */
   resolvers: string[];
   /** Resolved model + thinking budget per stage. */
@@ -230,7 +252,7 @@ export function fanOut(config: SmoothieConfig, createdAt: string): BriefFanOut {
       : undefined,
     authorship: b.manifest ? { author: b.manifest.author, organization: b.manifest.organization } : undefined,
     glossary,
-    policySeed: { danger: b.policy?.danger ?? [], budget: b.policy?.budget },
+    policySeed: { danger: b.policy?.danger ?? [], budget: b.policy?.budget, redactPatterns: b.policy?.secrets?.redact_patterns ?? [] },
     resolvers: b.verify?.resolve === false ? [] : (b.verify?.resolvers ?? []),
     stages: resolveStages(config),
     modalities: config.modalities ?? {},
