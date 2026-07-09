@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── The Rust consumer (svm): build, test, clippy ──────────────────────────
+  svm:
+    name: svm (Rust)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Test
+        run: cargo test --workspace --locked
+      - name: Clippy (informational — surfaces lints, does not gate)
+        run: cargo clippy --workspace
+        # Not `-D warnings` yet: the forked substrate carries pre-existing dead-code
+        # lints. Tighten to deny once those are cleaned up.
+
+  # ── The TS producer (smoothie + schema): typecheck + vitest ───────────────
+  # The frontend e2e tests consume a real `svm` binary, so build it first.
+  frontend:
+    name: frontend (TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Git identity (the incremental compile test makes real commits)
+        run: |
+          git config --global user.email "ci@smoothie.local"
+          git config --global user.name "smoothie ci"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build svm (consumed by the e2e tests)
+        run: cargo build --release --locked
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck (schema + frontend)
+        run: |
+          pnpm -C schema typecheck
+          pnpm -C frontend typecheck
+      - name: Test (vitest — includes golden-BC byte determinism)
+        run: pnpm -C frontend test

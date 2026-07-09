@@ -6,8 +6,9 @@ release/
 *.rlib
 *.prof*
 
-# Cargo
-Cargo.lock
+# NOTE: Cargo.lock and pnpm-lock.yaml are intentionally COMMITTED — Smoothie's pitch
+# is reproducibility, so builds must be pinned (CI runs `cargo test --locked` and
+# `pnpm install --frozen-lockfile`).
 
 # IDE
 .idea/
@@ -23,7 +24,6 @@ Cargo.lock
 node_modules/
 dist/
 *.tsbuildinfo
-pnpm-lock.yaml
 
 # Model credentials - Pi/Codex OAuth tokens (ChatGPT subscription). NEVER commit.
 auth.json
@@ -46,4 +46,5 @@ auth.json
 # other
 .snek/
 .claude/
+claude-sessions-backup/
 
