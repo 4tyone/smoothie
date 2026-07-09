@@ -42,9 +42,21 @@ pub fn git_commit(repo_path: &Path, message: &str) -> Result<String> {
         return get_current_commit_hash(repo_path);
     }
 
-    // Commit
+    // Commit with a deterministic identity scoped to THIS invocation (`-c`), so the
+    // internal BC store works even when the user has no global git identity
+    // configured (fresh machines, containers, CI runners) — the store is Smoothie's
+    // own versioning mechanism, not the user's personal history. A fixed committer
+    // also keeps the store reproducible.
     let commit_output = Command::new("git")
-        .args(["commit", "-m", message])
+        .args([
+            "-c",
+            "user.name=Smoothie SVM",
+            "-c",
+            "user.email=svm@smoothie.local",
+            "commit",
+            "-m",
+            message,
+        ])
         .current_dir(repo_path)
         .output()?;
 
