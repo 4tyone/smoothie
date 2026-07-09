@@ -35,6 +35,11 @@ export interface ResolveContext {
   nodes: GraphNode[];
   /** Re-read a source's original text (re-examine ground truth). */
   sourceText?: (sourceId: string) => string | undefined;
+  /** A model-backed yes/no semantic judgment — how a Resolver decides "do these
+   *  corroborate?" / "does this text support the claim?" WITHOUT lexical overlap.
+   *  Absent only if no gateway was wired (then a Resolver stays `unresolved`
+   *  rather than confirm on a guess). */
+  judge?: (instruction: string, content: string) => Promise<boolean>;
 }
 
 /** A verify plugin. `profile: "*"` applies to every profile. Deterministic

@@ -8,8 +8,11 @@
 // receipt + evaluated checks (the SVM's compile gate enforces it).
 
 import type { MergedGraph } from "./link.ts";
+import * as v from "valibot";
 import { selectResolvers } from "../resolve/registry.ts";
 import { isConfirmed, type GraphNode, type ResolveContext } from "../resolve/types.ts";
+import type { ModelGateway } from "../model/gateway.ts";
+import { JudgeResult } from "../bc/schemas.ts";
 
 export interface ResolveResult {
   merged: MergedGraph;
@@ -25,6 +28,9 @@ export interface ResolveOptions {
   requested: string[];
   /** Re-read a source's original text (for the re-examine Resolver). */
   sourceText?: (sourceId: string) => string | undefined;
+  /** The model gateway — a Resolver's corroboration/support judgment is the
+   *  model's, not lexical token overlap. */
+  gateway?: ModelGateway;
 }
 
 export async function resolve(merged: MergedGraph, opts: ResolveOptions): Promise<ResolveResult> {
@@ -34,7 +40,20 @@ export async function resolve(merged: MergedGraph, opts: ResolveOptions): Promis
   }
 
   const nodes = merged.nodes as GraphNode[];
-  const ctx: ResolveContext = { profile: opts.profile, nodes, sourceText: opts.sourceText };
+  // A model-backed yes/no judgment: this is where corroboration/support is DECIDED
+  // (semantically), replacing the resolvers' old token-overlap heuristic.
+  const gateway = opts.gateway;
+  const judge = gateway
+    ? async (instruction: string, content: string): Promise<boolean> => {
+        try {
+          const r = await gateway.extract({ label: "judge", instruction, content, schema: JudgeResult });
+          return (r as v.InferOutput<typeof JudgeResult>).yes === true;
+        } catch {
+          return false; // a failed judgment never confirms
+        }
+      }
+    : undefined;
+  const ctx: ResolveContext = { profile: opts.profile, nodes, sourceText: opts.sourceText, judge };
   let promoted = 0;
 
   for (const node of nodes) {
