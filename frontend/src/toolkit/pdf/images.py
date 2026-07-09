@@ -11,11 +11,25 @@ import argparse, json, os, sys
 
 
 def parse_pages(spec, n):
+    # Accept a single page (N), a range (A-B), or a comma list mixing both
+    # (e.g. "2,5,9" or "1-3,7"). 1-based on input, 0-based on output.
     if not spec:
         return range(n)
-    if "-" in spec:
-        a, b = spec.split("-"); return range(int(a) - 1, min(n, int(b)))
-    return [int(spec) - 1]
+    out, seen = [], set()
+    for part in str(spec).split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            a, b = part.split("-", 1)
+            rng = range(int(a) - 1, min(n, int(b)))
+        else:
+            p = int(part) - 1
+            rng = [p] if 0 <= p < n else []
+        for p in rng:
+            if p not in seen:
+                seen.add(p); out.append(p)
+    return out
 
 
 def extract(path, spec, out, min_bytes) -> dict:

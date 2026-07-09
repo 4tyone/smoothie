@@ -85,4 +85,32 @@ describe("modality toolkit (pre-built scripts the agent orchestrates)", () => {
       expect(fs.existsSync(path.join(tools, m)), `scaffolded tools/${m}`).toBe(true);
     }
   });
+
+  // Regression guard for the broken run templates (sentiment_segments, aggregate,
+  // …): every manifest command's `run` template must satisfy its script's argparse
+  // contract — the referenced script exists, and every REQUIRED flag appears in the
+  // template. This would have caught the four templates that failed 100% verbatim.
+  it("every manifest command's run template includes its script's required flags", () => {
+    for (const m of MODALITIES) {
+      const manifestPath = path.join(bundledToolkitDir(), m, "manifest.json");
+      if (!fs.existsSync(manifestPath)) continue;
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
+        commands: Array<{ name: string; run: string }>;
+      };
+      for (const cmd of manifest.commands) {
+        // Resolve the .py the template invokes and confirm it exists.
+        const scriptName = cmd.run.match(/([A-Za-z0-9_]+\.py)/)?.[1];
+        expect(scriptName, `${m}/${cmd.name} run references a .py`).toBeTruthy();
+        const scriptPath = path.join(bundledToolkitDir(), m, scriptName!);
+        expect(fs.existsSync(scriptPath), `${m}/${scriptName} exists`).toBe(true);
+
+        // Every argparse flag declared required=True must be present in the template.
+        const src = fs.readFileSync(scriptPath, "utf8");
+        const required = [...src.matchAll(/add_argument\(\s*["'](--[A-Za-z0-9-]+)["'][^)]*required\s*=\s*True/g)].map((mm) => mm[1]);
+        for (const flag of required) {
+          expect(cmd.run, `${m}/${cmd.name} template must pass required ${flag}`).toContain(flag);
+        }
+      }
+    }
+  });
 });

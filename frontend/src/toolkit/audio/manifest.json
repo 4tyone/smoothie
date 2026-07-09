@@ -10,21 +10,21 @@
       "emits": "text"
     },
     {
-      "name": "segment_silence",
-      "description": "Split audio into non-silent segments via ffmpeg silencedetect - useful to chunk a",
-      "run": "uv run \"$SMOOTHIE_TOOLKIT/audio/segment_silence.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "name": "transcribe",
+      "description": "Transcribe audio to timestamped segments with faster-whisper (offline, local). Write the transcript to a file so later steps can read it.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/audio/transcribe.py\" \"$SMOOTHIE_SOURCE_PATH\" --out transcript.json --json",
       "emits": "text"
     },
     {
       "name": "sentiment_segments",
-      "description": "Group a transcript's segments into consecutive runs of the same sentiment with",
-      "run": "uv run \"$SMOOTHIE_TOOLKIT/audio/sentiment_segments.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "description": "Group a transcript's segments into consecutive runs of the same sentiment, with timestamp ranges. Reads the transcript from transcribe (no positional source arg).",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/audio/sentiment_segments.py\" --transcript transcript.json --json",
       "emits": "text"
     },
     {
-      "name": "transcribe",
-      "description": "Transcribe audio to timestamped segments with faster-whisper (offline, local).",
-      "run": "uv run \"$SMOOTHIE_TOOLKIT/audio/transcribe.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "name": "segment_silence",
+      "description": "Split audio into non-silent segments via ffmpeg silencedetect - useful to chunk a long recording into spans of speech.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/audio/segment_silence.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
       "emits": "text"
     }
   ]

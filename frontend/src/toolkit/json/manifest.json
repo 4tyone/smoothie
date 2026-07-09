@@ -5,7 +5,7 @@
   "commands": [
     {
       "name": "flatten",
-      "description": "Flatten a JSON array of objects (or a path into one) into a table, then profile it",
+      "description": "Flatten a JSON array of objects (or a path into one) into a table, then sample it with true row counts.",
       "run": "uv run \"$SMOOTHIE_TOOLKIT/json/flatten.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
       "emits": "text"
     },

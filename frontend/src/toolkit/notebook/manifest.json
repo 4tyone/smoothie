@@ -5,7 +5,7 @@
   "commands": [
     {
       "name": "extract",
-      "description": "Extract a Jupyter notebook into structured cells: markdown prose, code, and outputs",
+      "description": "Extract a Jupyter notebook into structured cells: markdown prose, code, and outputs.",
       "run": "uv run \"$SMOOTHIE_TOOLKIT/notebook/extract.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
       "emits": "text"
     }

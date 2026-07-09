@@ -28,13 +28,19 @@ script's dependencies on first use (cached).
 2. If audio: `transcribe.py <video> --out transcript.json` → then
    `sentiment_segments.py --transcript transcript.json` for sentiment-tagged time ranges.
 3. For each notable moment (a sentiment range, a scene boundary, a topic shift):
-   `extract_frames.py <video> --range <start> <end> --count 3 --out frames` — the
-   written frames are visual evidence to reason over.
+   `extract_frames.py <video> --range <start> <end> --count 3 --out frames`, then
+   **attach the returned frame paths with `read_image`** (up to 4 per call — a burst
+   around one moment, since an effect often lags its trigger). A frame you did not
+   attach is invisible; extracting it is not seeing it.
 4. Use `scene_detect.py` / `keyframes.py` for a visual summary of a video with little
-   speech.
+   speech — then `read_image` the frames you want to reason about.
 
 ## Facts & locators
 
 Produce facts about what is said and shown — topics, claims, on-screen text, actions,
-sentiment shifts. Cite a `locator` per fact: `"t=72s"` or `"00:01:12–00:01:48"`.
-Only state what the transcript/frames support; never invent.
+sentiment shifts. Cite a `locator` per fact: `"t=72s"` or `"00:01:12–00:01:48"`, and
+prefer the structured span for time media: `"span": { "kind": "time", "t_start": 72,
+"t_end": 96 }` (derive the numbers from tool output — transcript segments, scene
+boundaries, frame timestamps — never estimate them). Only state what the transcript
+or frames you actually attached support; **never author a visual fact from a frame
+you did not `read_image`**.

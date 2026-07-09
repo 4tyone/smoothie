@@ -11,7 +11,7 @@
     },
     {
       "name": "ocr",
-      "description": "OCR scanned PDF pages (rasterize -> tesseract). Use for pages probe.py flags as",
+      "description": "OCR scanned PDF pages (rasterize -> tesseract). Use for pages that probe.py flags as having no text layer.",
       "run": "uv run \"$SMOOTHIE_TOOLKIT/pdf/ocr.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
       "emits": "text"
     },

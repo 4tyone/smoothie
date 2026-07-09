@@ -11,6 +11,7 @@ import * as path from "node:path";
 import { execFileSync } from "node:child_process";
 import * as v from "valibot";
 import { ExtractionEnvelope } from "../bc/schemas.ts";
+import { sanitizedEnv } from "../redact.ts";
 import type { ResolvedCommand, ResolvedProcessor } from "./resolve.ts";
 
 const TIMEOUT_MS = Number(process.env.SMOOTHIE_PY_TIMEOUT_MS ?? "600000");
@@ -72,7 +73,9 @@ export function runShell(
       timeout: TIMEOUT_MS,
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
-      env: { ...process.env, ...processorEnv(desc, params) },
+      // Credential-shaped env vars are stripped so a processor never sees the
+      // operator's API keys (spec 06 · §2); SMOOTHIE_* is merged over the rest.
+      env: { ...sanitizedEnv(), ...processorEnv(desc, params) },
     });
     return { ok: true, out: out || "" };
   } catch (e) {

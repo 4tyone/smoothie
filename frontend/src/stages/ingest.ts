@@ -75,6 +75,20 @@ export function ingest(folder: string): IngestResult {
   const sources: IngestedSource[] = [];
   const skipped: string[] = [];
   const ignored = loadIgnore(folder);
+  // Sanitizing a path to a source_id is lossy (`Report.PDF` and `report.pdf` both
+  // → `src-report-pdf`), so distinct sources could silently collapse onto one id —
+  // one vanishes and the other inherits its receipts. `mintId` guarantees a stable,
+  // unique id per distinct key by appending a short key-hash on collision.
+  const used = new Set<string>();
+  const mintId = (key: string): string => {
+    const base = "src-" + key.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase();
+    if (!used.has(base)) { used.add(base); return base; }
+    // Deterministic disambiguator from the full key (stable across runs).
+    const suffix = crypto.createHash("sha256").update(key).digest("hex").slice(0, 8);
+    const id = `${base}-${suffix}`;
+    used.add(id);
+    return id;
+  };
 
   for (const file of listFiles(folder)) {
     const rel = path.relative(folder, file);
@@ -83,14 +97,14 @@ export function ingest(folder: string): IngestResult {
     // an unknown extension routes to `generic` instead of being silently skipped.
     const kind = resolveModality({ relPath: rel }, fan.modalities);
     // Stable, content-independent source_id so re-runs match (spec 03 determinism).
-    const source_id = "src-" + rel.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase();
+    const source_id = mintId(rel);
     sources.push({ source_id, kind, path: file, relPath: rel, hash: sha256(file) });
   }
 
   // Remote / explicit source declarations (spec 10): registered alongside files and
   // localized by their modality's `fetch` step at describe time.
   for (const decl of fan.sourceDecls) {
-    const source_id = "src-" + decl.uri.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase();
+    const source_id = mintId(decl.uri);
     sources.push({ source_id, kind: decl.modality, path: "", relPath: decl.uri, hash: sha256str(decl.uri), uri: decl.uri });
   }
 

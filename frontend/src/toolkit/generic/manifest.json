@@ -11,7 +11,7 @@
     },
     {
       "name": "text",
-      "description": "Best-effort text extraction from an unknown file: decode if textual, else pull",
+      "description": "Best-effort text extraction from an unknown file: decode if textual, else pull printable strings.",
       "run": "uv run \"$SMOOTHIE_TOOLKIT/generic/text.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
       "emits": "text"
     }

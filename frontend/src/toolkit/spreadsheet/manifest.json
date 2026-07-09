@@ -4,33 +4,33 @@
   "version": "0.2.0",
   "commands": [
     {
-      "name": "aggregate",
-      "description": "Group by a dimension and aggregate measures - the analysis the dataset supports",
-      "run": "uv run \"$SMOOTHIE_TOOLKIT/spreadsheet/aggregate.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "name": "sheets",
+      "description": "List a workbook's sheets with shape + header preview. Start here for an .xlsx/.xls.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/spreadsheet/sheets.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "emits": "text"
+    },
+    {
+      "name": "schema",
+      "description": "Infer a tabular schema: columns, dtypes, and a dimension/measure split - the columns you can group by vs aggregate.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/spreadsheet/schema.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
       "emits": "text"
     },
     {
       "name": "profile",
-      "description": "Profile each column: nulls, uniques, numeric stats, top categorical values, and a",
+      "description": "Profile each column: nulls, uniques, numeric stats, and top categorical values - the shape of the data.",
       "run": "uv run \"$SMOOTHIE_TOOLKIT/spreadsheet/profile.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
       "emits": "text"
     },
     {
       "name": "sample",
-      "description": "Sample rows from a sheet (head, or random) as records - see real values.",
-      "run": "uv run \"$SMOOTHIE_TOOLKIT/spreadsheet/sample.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "description": "Sample rows from a sheet (head, or --random) as records - see real values, never dump the whole sheet.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/spreadsheet/sample.py\" \"$SMOOTHIE_SOURCE_PATH\" --n 5 --json",
       "emits": "text"
     },
     {
-      "name": "schema",
-      "description": "Infer a tabular schema: columns, dtypes, and a dimension/measure split - the",
-      "run": "uv run \"$SMOOTHIE_TOOLKIT/spreadsheet/schema.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
-      "emits": "text"
-    },
-    {
-      "name": "sheets",
-      "description": "List a workbook's sheets with shape + header preview. Start here for an .xlsx/.xls.",
-      "run": "uv run \"$SMOOTHIE_TOOLKIT/spreadsheet/sheets.py\" \"$SMOOTHIE_SOURCE_PATH\" --json",
+      "name": "aggregate",
+      "description": "Group by a dimension and aggregate measures - the analysis the dataset supports. --by and --measure are required and repeatable.",
+      "run": "uv run \"$SMOOTHIE_TOOLKIT/spreadsheet/aggregate.py\" \"$SMOOTHIE_SOURCE_PATH\" --by <dimension_column> --measure <measure_column> --agg sum --json",
       "emits": "text"
     }
   ]
