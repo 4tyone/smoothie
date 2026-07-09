@@ -3,7 +3,7 @@
 # The library is named `smoothie` (the forked substrate); the shipped binary is `svm`.
 [package]
 name = "smoothie"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "SVM — the deterministic Smoothie runtime that consumes a bc.v1 BC"
 license = "MIT"
