@@ -1,6 +1,6 @@
 {
   "name": "smoothie",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Smoothie — the TS compiler frontend (on Pi): ingest → describe → structure → link → resolve → compile. Bundles the svm runtime (ADR-0001).",
   "license": "MIT",
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "@smoothie/schema",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "ontology.v1 — the Smoothie ontology contract: TypeScript types + JSON Schema, the single source of truth for the seam (spec 01/07).",
   "license": "MIT",
   "type": "module",
