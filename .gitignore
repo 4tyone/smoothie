@@ -43,6 +43,9 @@ auth.json
 /specs/
 /specs_/
 
+# Local content drafts (blog posts, announcements) - kept on disk, out of git.
+/content/
+
 # other
 .snek/
 .claude/
