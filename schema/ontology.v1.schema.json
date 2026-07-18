@@ -1,0 +1,194 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://smoothie.dev/schema/ontology.v1.schema.json",
+  "title": "ontology.v1",
+  "description": "The Smoothie ontology contract: a typed, entity-resolved, grounded ontology (spec 01). The enforced structural shape; gates G1-G7 are enforced in code by `svm validate --target ontology`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "manifest", "version"],
+  "properties": {
+    "schema": { "const": "ontology.v1" },
+    "manifest": { "$ref": "#/definitions/Manifest" },
+    "brief": { "$ref": "#/definitions/Brief" },
+    "sources": { "type": "object", "additionalProperties": { "$ref": "#/definitions/Source" } },
+    "facts": { "type": "object", "additionalProperties": { "$ref": "#/definitions/Fact" } },
+    "entity_types": { "type": "object", "additionalProperties": { "$ref": "#/definitions/EntityType" } },
+    "entities": { "type": "object", "additionalProperties": { "$ref": "#/definitions/Entity" } },
+    "link_types": { "type": "object", "additionalProperties": { "$ref": "#/definitions/LinkType" } },
+    "links": { "type": "object", "additionalProperties": { "$ref": "#/definitions/Link" } },
+    "resolutions": { "type": "object", "additionalProperties": { "$ref": "#/definitions/Resolution" } },
+    "glossary": { "type": "object" },
+    "notes": { "type": "array" },
+    "policy": { "type": "object", "properties": { "security": { "type": "object" } } },
+    "version": { "$ref": "#/definitions/Version" },
+    "extensions": { "type": "object" }
+  },
+  "definitions": {
+    "Fidelity": { "enum": ["confirmed", "claimed", "guessed", "absent", "derived"] },
+    "Provenance": {
+      "type": "object",
+      "properties": {
+        "fact_ids": { "type": "array", "items": { "type": "string" } },
+        "source_ids": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "SourceRef": {
+      "type": "object",
+      "required": ["source_id", "span"],
+      "properties": { "source_id": { "type": "string" }, "span": { "$ref": "#/definitions/SourceSpan" } }
+    },
+    "SourceSpan": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": { "kind": { "enum": ["time", "doc", "crawl", "live", "resolve"] } }
+    },
+    "Manifest": {
+      "type": "object",
+      "required": ["ontology_id", "profile"],
+      "properties": {
+        "ontology_id": { "type": "string" },
+        "schema": { "const": "ontology.v1" },
+        "producer_version": { "type": "string" },
+        "profile": { "type": "string" },
+        "created_at": { "type": "string" },
+        "authorship": { "type": "object" },
+        "counts": { "type": "object" }
+      }
+    },
+    "Brief": {
+      "type": "object",
+      "required": ["brief_id"],
+      "properties": { "brief_id": { "type": "string" }, "intent": { "type": "string" }, "goals": { "type": "array" } }
+    },
+    "Source": {
+      "type": "object",
+      "required": ["source_id", "kind"],
+      "properties": {
+        "source_id": { "type": "string" }, "kind": { "type": "string" },
+        "path": { "type": "string" }, "uri": { "type": "string" }, "hash": { "type": "string" },
+        "companions": { "type": "array" }
+      }
+    },
+    "Fact": {
+      "type": "object",
+      "required": ["fact_id", "kind", "text", "confidence", "fidelity"],
+      "properties": {
+        "fact_id": { "type": "string" },
+        "kind": { "enum": ["knowledge", "action"] },
+        "text": { "type": "string" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "fidelity": { "$ref": "#/definitions/Fidelity" },
+        "source_refs": { "type": "array", "items": { "$ref": "#/definitions/SourceRef" } },
+        "brief_id": { "type": "string" },
+        "view_id": { "type": "string" }
+      }
+    },
+    "PropSchema": {
+      "type": "object",
+      "required": ["value_kind", "cardinality"],
+      "properties": {
+        "value_kind": { "enum": ["string", "number", "boolean", "date", "geopoint", "enum", "ref"] },
+        "cardinality": { "enum": ["one", "many"] },
+        "ref_type_id": { "type": "string" },
+        "enum_values": { "type": "array", "items": { "type": "string" } },
+        "required": { "type": "boolean" },
+        "identity": { "type": "boolean" }
+      }
+    },
+    "EntityType": {
+      "type": "object",
+      "required": ["type_id", "name", "fidelity", "status"],
+      "properties": {
+        "type_id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "property_schema": { "type": "object", "additionalProperties": { "$ref": "#/definitions/PropSchema" } },
+        "provenance": { "$ref": "#/definitions/Provenance" },
+        "fidelity": { "$ref": "#/definitions/Fidelity" },
+        "status": { "enum": ["open", "closed"] },
+        "extends": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "PropertyValue": {
+      "type": "object",
+      "required": ["value", "fidelity"],
+      "properties": {
+        "value": {},
+        "fact_ids": { "type": "array", "items": { "type": "string" } },
+        "fidelity": { "$ref": "#/definitions/Fidelity" },
+        "security_id": { "type": "string" }
+      }
+    },
+    "Entity": {
+      "type": "object",
+      "required": ["entity_id", "type_id", "label", "status"],
+      "properties": {
+        "entity_id": { "type": "string" },
+        "type_id": { "type": "string" },
+        "label": { "type": "string" },
+        "aliases": { "type": "array", "items": { "type": "object", "required": ["text", "source_id"], "properties": { "text": { "type": "string" }, "source_id": { "type": "string" } } } },
+        "properties": { "type": "object", "additionalProperties": { "type": "array", "items": { "$ref": "#/definitions/PropertyValue" } } },
+        "provenance": { "$ref": "#/definitions/Provenance" },
+        "security_id": { "type": "string" },
+        "resolved_from": { "type": "array", "items": { "type": "string" } },
+        "merged_into": { "type": "string" },
+        "status": { "enum": ["active", "orphan"] }
+      }
+    },
+    "LinkType": {
+      "type": "object",
+      "required": ["link_type_id", "name", "from_type_id", "to_type_id", "cardinality", "status"],
+      "properties": {
+        "link_type_id": { "type": "string" },
+        "name": { "type": "string" },
+        "from_type_id": { "type": "string" },
+        "to_type_id": { "type": "string" },
+        "cardinality": { "enum": ["one_to_one", "one_to_many", "many_to_many"] },
+        "directed": { "type": "boolean" },
+        "description": { "type": "string" },
+        "provenance": { "$ref": "#/definitions/Provenance" },
+        "status": { "enum": ["open", "closed"] }
+      }
+    },
+    "Link": {
+      "type": "object",
+      "required": ["link_id", "link_type_id", "from", "to", "fidelity"],
+      "properties": {
+        "link_id": { "type": "string" },
+        "link_type_id": { "type": "string" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "properties": { "type": "object" },
+        "provenance": { "$ref": "#/definitions/Provenance" },
+        "fidelity": { "$ref": "#/definitions/Fidelity" },
+        "security_id": { "type": "string" }
+      }
+    },
+    "Resolution": {
+      "type": "object",
+      "required": ["resolution_id", "canonical", "confidence", "method", "reversible"],
+      "properties": {
+        "resolution_id": { "type": "string" },
+        "canonical": { "type": "string" },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "evidence": { "type": "object", "properties": { "fact_ids": { "type": "array", "items": { "type": "string" } }, "rationale": { "type": "string" } } },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "method": { "enum": ["agent", "agent+verified"] },
+        "verified_by": { "enum": ["judge", "human"] },
+        "created_in_version": { "type": "string" },
+        "reversible": { "type": "boolean" }
+      }
+    },
+    "Version": {
+      "type": "object",
+      "required": ["version_id", "envelope"],
+      "properties": {
+        "version_id": { "type": "string" },
+        "parent_version_id": { "type": "string" },
+        "created_at": { "type": "string" },
+        "envelope": { "type": "object", "properties": { "source_hashes": { "type": "object", "additionalProperties": { "type": "string" } } } },
+        "operations": { "type": "array" }
+      }
+    }
+  }
+}

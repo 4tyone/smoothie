@@ -1,17 +1,18 @@
-// @smoothie/schema — the bc.v1 contract, shared by both halves of the seam.
+// @smoothie/schema — the ontology.v1 contract + the shared extraction.v1 envelope.
 //
-// The TS frontend imports these types and validates a BC against
-// `bc.v1.schema.json` on write; the Rust SVM mirrors the same schema with serde
-// and validates on read (spec 07 · the bc.v1 schema as single source of truth).
+// The TS frontend validates an ontology against `ontology.v1.schema.json` on write;
+// the Rust SVM mirrors the same schema with serde and validates on read (spec 07 ·
+// the schema as single source of truth).
 
-export * from "./bc.v1.js";
 export * from "./extraction.v1.js";
 
-// The canonical JSON Schema, re-exported so the frontend can validate on write
-// with the same artifact the Rust side mirrors. (Resolved relative to the
-// package root at runtime; bundlers should copy bc.v1.schema.json alongside.)
-export const BC_V1_SCHEMA_PATH = "bc.v1.schema.json";
+// The ontology.v1 contract (spec 01), namespaced to keep its type names grouped.
+export * as OntologyV1 from "./ontology.v1.js";
 
 // The processor output contract (spec 10). External processors in any language can
 // validate their stdout against this artifact.
 export const EXTRACTION_V1_SCHEMA_PATH = "extraction.v1.schema.json";
+
+// The ontology.v1 JSON Schema (spec 01), re-exported so the frontend can validate
+// on write with the same artifact the Rust side mirrors.
+export const ONTOLOGY_V1_SCHEMA_PATH = "ontology.v1.schema.json";

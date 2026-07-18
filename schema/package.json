@@ -1,7 +1,7 @@
 {
   "name": "@smoothie/schema",
   "version": "0.3.0",
-  "description": "bc.v1 — the Smoothie BC contract: TypeScript types + JSON Schema, the single source of truth for the seam (spec 02/07).",
+  "description": "ontology.v1 — the Smoothie ontology contract: TypeScript types + JSON Schema, the single source of truth for the seam (spec 01/07).",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
@@ -11,10 +11,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./bc.v1.schema.json": "./bc.v1.schema.json",
-    "./extraction.v1.schema.json": "./extraction.v1.schema.json"
+    "./extraction.v1.schema.json": "./extraction.v1.schema.json",
+    "./ontology.v1.schema.json": "./ontology.v1.schema.json"
   },
-  "files": ["dist", "bc.v1.schema.json", "extraction.v1.schema.json", "examples"],
+  "files": ["dist", "extraction.v1.schema.json", "ontology.v1.schema.json", "examples"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
