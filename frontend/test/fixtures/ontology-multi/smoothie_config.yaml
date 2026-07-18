@@ -1,0 +1,7 @@
+version: smoothie.config.v1
+profile: corpus
+brief:
+  intent: Compile division updates across sources into one grounded ontology.
+  goals:
+    - id: divisions
+      text: track each division across sources

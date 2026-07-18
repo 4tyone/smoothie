@@ -21,7 +21,15 @@ const Goal = v.object({
   done_when: v.optional(v.string()),
 });
 
-const GlossarySeed = v.object({ term: v.string(), definition: v.string() });
+// Glossary is load-bearing for the ontology track (spec 07 §1): `aliases` are
+// authoritative equivalence hints (the segment-rename fix), `type` an optional seed
+// type. Both are ignored by the bc track.
+const GlossarySeed = v.object({
+  term: v.string(),
+  definition: v.string(),
+  aliases: v.optional(v.array(v.string())),
+  type: v.optional(v.string()),
+});
 
 const DangerSeed = v.object({
   match: v.string(),
@@ -148,6 +156,38 @@ export const SmoothieConfig = v.object({
     describe: v.optional(StageConfig),
     structure: v.optional(StageConfig),
     link: v.optional(StageConfig),
+    // ontology track (spec 03/04). Ignored by the bc track.
+    model: v.optional(StageConfig),
+    resolve: v.optional(StageConfig),
+  })),
+  /** Entity-resolution tuning for the ontology `resolve` stage (spec 04 §2, 07 §2).
+   *  Ignored by the bc track. */
+  resolution: v.optional(v.object({
+    merge_confidence: v.optional(v.number()),
+    verify_below: v.optional(v.number()),
+    block_by: v.optional(v.array(v.string())),
+  })),
+  /** Emergent-schema stability (spec 05 §3, 07 §2): a type is closed for
+   *  modification after it has been stable across this many builds. Ontology track. */
+  schema: v.optional(v.object({
+    close_after_builds: v.optional(v.number()),
+  })),
+  /** Verb-layer promotion eligibility (spec 10 §2/§8): the fraction of a logic
+   *  unit's steps that must be de-facto-attested before it can be promoted. */
+  promotion: v.optional(v.object({
+    min_de_facto_support: v.optional(v.number()),
+  })),
+  /** Verb-layer autonomy floor (spec 10 §5/§8): the blast-radius small/large
+   *  boundary and the judged-unit oversight penalty. */
+  autonomy: v.optional(v.object({
+    blast_small_max: v.optional(v.number()),
+    judged_penalty: v.optional(v.number()),
+  })),
+  /** Conformance loop (spec 10 §6/§8): drift thresholds. An executable flow whose
+   *  drift crosses `drift_max` is auto-demoted to observed. */
+  conformance: v.optional(v.object({
+    drift_alert: v.optional(v.number()),
+    drift_max: v.optional(v.number()),
   })),
   /** Custom, config-declared modalities (spec 10). Keyed by custom name. */
   modalities: v.optional(v.record(v.string(), ModalityConfig)),
@@ -194,12 +234,17 @@ export interface ResolvedStages {
   describe: StageSettings;
   structure: StageSettings;
   link: StageSettings;
+  // ontology track (spec 03/04); modeling and resolution are judgment-heavy → medium.
+  model: StageSettings;
+  resolve: StageSettings;
 }
 
 const STAGE_DEFAULT_THINKING: Record<keyof ResolvedStages, StageSettings["thinking"]> = {
   describe: "minimal",
   structure: "low",
   link: "medium",
+  model: "medium",
+  resolve: "medium",
 };
 
 function resolveStages(config: SmoothieConfig): ResolvedStages {
@@ -211,7 +256,13 @@ function resolveStages(config: SmoothieConfig): ResolvedStages {
       thinking: s?.thinking ?? STAGE_DEFAULT_THINKING[name],
     };
   };
-  return { describe: one("describe"), structure: one("structure"), link: one("link") };
+  return {
+    describe: one("describe"),
+    structure: one("structure"),
+    link: one("link"),
+    model: one("model"),
+    resolve: one("resolve"),
+  };
 }
 
 /** The Brief's fields, fanned out to the BC sections that consume them (spec 02),
@@ -222,11 +273,24 @@ export interface BriefFanOut {
   app?: { name?: string; base_url?: string; allowed_origins?: string[] }; // → manifest.app (web-app)
   authorship?: { author?: string; organization?: string };
   glossary: Record<string, { definition: string }>;
+  /** Raw glossary seeds with equivalence (`aliases`) and optional seed `type`, for
+   *  the ontology `model`/`resolve` stages (spec 07 §1). Empty on the bc track. */
+  glossarySeeds: Array<{ term: string; definition: string; aliases?: string[]; type?: string }>;
   policySeed: { danger: Array<{ match: string; level: string; reason: string }>; budget?: { max_actions?: number; max_pages?: number }; redactPatterns: string[] };
   /** Resolvers to run at the resolve stage (from `verify.resolvers`); empty → no-op. */
   resolvers: string[];
   /** Resolved model + thinking budget per stage. */
   stages: ResolvedStages;
+  /** Resolved entity-resolution config for the ontology `resolve` stage (spec 04). */
+  resolution: { merge_confidence: number; verify_below: number; block_by: string[] };
+  /** Resolved emergent-schema stability config (spec 05 §3, 07 §2). */
+  schema: { close_after_builds: number };
+  /** Resolved verb-layer promotion eligibility config (spec 10 §2/§8). */
+  promotion: { min_de_facto_support: number };
+  /** Resolved verb-layer autonomy config (spec 10 §5/§8). */
+  autonomy: { blast_small_max: number; judged_penalty: number };
+  /** Resolved conformance-loop drift thresholds (spec 10 §6/§8). */
+  conformance: { drift_alert: number; drift_max: number };
   /** Config-declared custom modalities (spec 10); empty → built-ins only. */
   modalities: Record<string, ModalityConfig>;
   /** Remote / explicit source declarations (spec 10); empty → folder-walk only. */
@@ -237,6 +301,7 @@ export function fanOut(config: SmoothieConfig, createdAt: string): BriefFanOut {
   const b = config.brief;
   const glossary: BriefFanOut["glossary"] = {};
   for (const g of b.glossary ?? []) glossary[g.term] = { definition: g.definition };
+  const glossarySeeds = (b.glossary ?? []).map((g) => ({ term: g.term, definition: g.definition, aliases: g.aliases, type: g.type }));
 
   return {
     profile: config.profile,
@@ -252,9 +317,25 @@ export function fanOut(config: SmoothieConfig, createdAt: string): BriefFanOut {
       : undefined,
     authorship: b.manifest ? { author: b.manifest.author, organization: b.manifest.organization } : undefined,
     glossary,
+    glossarySeeds,
     policySeed: { danger: b.policy?.danger ?? [], budget: b.policy?.budget, redactPatterns: b.policy?.secrets?.redact_patterns ?? [] },
     resolvers: b.verify?.resolve === false ? [] : (b.verify?.resolvers ?? []),
     stages: resolveStages(config),
+    resolution: {
+      merge_confidence: config.resolution?.merge_confidence ?? 0.8,
+      verify_below: config.resolution?.verify_below ?? 0.9,
+      block_by: config.resolution?.block_by ?? ["type", "identity", "alias", "embedding"],
+    },
+    schema: { close_after_builds: config.schema?.close_after_builds ?? 3 },
+    promotion: { min_de_facto_support: config.promotion?.min_de_facto_support ?? 0.7 },
+    autonomy: {
+      blast_small_max: config.autonomy?.blast_small_max ?? 50,
+      judged_penalty: config.autonomy?.judged_penalty ?? 1,
+    },
+    conformance: {
+      drift_alert: config.conformance?.drift_alert ?? 0.15,
+      drift_max: config.conformance?.drift_max ?? 0.35,
+    },
     modalities: config.modalities ?? {},
     sourceDecls: config.sources ?? [],
   };

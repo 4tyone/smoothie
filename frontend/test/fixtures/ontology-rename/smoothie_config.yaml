@@ -1,0 +1,19 @@
+version: smoothie.config.v1
+profile: corpus
+brief:
+  intent: >
+    Compile Caterpillar segment disclosures across a filing and an earnings call
+    into one grounded ontology, resolving the segment rename across sources.
+  goals:
+    - id: segments
+      text: track each reportable segment across sources and across time
+  glossary:
+    - term: Power & Energy
+      type: Segment
+      aliases:
+        - Energy & Transportation
+        - Power & Energy
+      definition: >
+        Caterpillar's reportable segment reorganized and presented as "Power &
+        Energy"; treat it as the same segment as the former "Energy &
+        Transportation" and resolve across the rename.

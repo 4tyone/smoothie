@@ -1,14 +1,16 @@
 // A deterministic, model-free gateway — strictly a CI/offline **determinism
 // harness** (spec 07 · "a deterministic ... mode beside the real path"), NOT a
-// substitute for the model. The real run uses `RealModelGateway` (the model on
-// the user's ChatGPT subscription / API key) and is the default; this exists only
-// so "same input → same BC" (spec 03) can be tested without a non-deterministic
-// model in the loop. It produces a valid-but-mechanical graph; it is never a
+// substitute for the model. The real run uses `RealModelGateway` (the model on the
+// user's ChatGPT subscription / API key) and is the default; this exists only so
+// "same input → same ontology" (spec 05) can be tested without a non-deterministic
+// model in the loop. It produces a valid-but-mechanical ontology; it is never a
 // stand-in for real extraction.
 
 import * as v from "valibot";
 import type { ModelGateway, ExtractRequest } from "./gateway.ts";
-import { DescribeResult, StructureResult, LinkResult, type Fact } from "../bc/schemas.ts";
+import { DescribeResult, type Fact } from "../bc/schemas.ts";
+import { ModelResult } from "../ontology/schemas.ts";
+import { similarity } from "../stages/resolve-sim.ts";
 
 const ACTION_VERBS: Array<[RegExp, "goto" | "click" | "fill" | "select"]> = [
   [/\bgo to\b|\bnavigate\b|\bopen the\b|\bvisit\b/i, "goto"],
@@ -23,8 +25,8 @@ function firstSentence(text: string): string {
   return (m ? m[1] : cleaned.slice(0, 200)).trim();
 }
 
-/** Deterministic `describe` for ONE segment: a knowledge fact, plus an action
- *  fact when the text describes an interaction. Ids are assigned by the stage. */
+/** Deterministic `describe` for ONE segment: a knowledge fact, plus an action fact
+ *  when the text describes an interaction. Ids are assigned by the stage. */
 function fakeDescribe(content: string): v.InferOutput<typeof DescribeResult> {
   const summary = firstSentence(content);
   const facts: Fact[] = [
@@ -46,95 +48,30 @@ function fakeDescribe(content: string): v.InferOutput<typeof DescribeResult> {
   return { facts };
 }
 
-/** Deterministic `structure` for ONE source → a local object (no outlines; those
- *  are reconciled at link). View is per-source so the linker has something to
- *  merge/connect across sources. Provenance is materialized by the stage. */
-function detStructure(ctx: {
-  profile: string;
-  sourceId: string;
-  urlPatterns: string[];
-  goals?: Array<{ id: string; text: string }>;
-  facts: Array<{ fact_id: string; kind: string; text: string; action_draft?: { verb: string; target: string } }>;
-}): v.InferOutput<typeof StructureResult> {
-  const webApp = ctx.profile === "web-app";
-  const viewId = `v-${ctx.sourceId}`;
-  // Deterministic stand-in for the model's semantic goal-tagging: round-robin nodes
-  // across the goals so scenes are non-trivially scoped (the real model judges by
-  // meaning — this fake just needs to be stable and exercise the plumbing).
-  const goals = ctx.goals ?? [];
-  const goalFor = (i: number): string[] => (goals.length ? [goals[i % goals.length].id] : []);
-
-  const nodes = ctx.facts.map((f, i) => {
-    const id = `n-${f.fact_id}`;
-    if (webApp && f.kind === "action" && f.action_draft) {
-      const target = f.action_draft.target || f.text;
-      return {
-        id, title: target.slice(0, 60), summary: f.text, kind: "action" as const,
-        view_id: viewId, fact_ids: [f.fact_id],
-        action: f.action_draft.verb === "goto"
-          ? { kind: "goto" as const, url: ctx.urlPatterns[0] ?? "/" }
-          : { kind: "click" as const, locator: { description: target, primary: { by: "text" as const, value: target.slice(0, 40) }, fallbacks: [] } },
-        checks: [{ kind: "url_matches" as const, expected: ctx.urlPatterns[0] ?? "/" }],
-        fidelity: "claimed" as const, goal_ids: goalFor(i),
-      };
+/** Deterministic ontology `model` (spec 09 §4 · the model-free gateway): one
+ *  candidate entity per fact, typed mechanically. A fact whose text contains a
+ *  glossary surface form with a seed `type` is typed to it (the segment rename
+ *  becomes a `Segment`); otherwise it is a `Topic`. Entity resolution by natural key
+ *  + glossary equivalence happens deterministically in the `model` stage; this
+ *  gateway only proposes. Purely reproducible; the real gateway uses the model. */
+function detModel(ctx: {
+  facts: Array<{ fact_id: string; text: string; source_id: string }>;
+  glossary?: Array<{ term: string; aliases?: string[]; type?: string }>;
+}): v.InferOutput<typeof ModelResult> {
+  const groups = (ctx.glossary ?? []).filter((g) => g.type);
+  const typeFor = (text: string): string => {
+    const lc = text.toLowerCase();
+    for (const g of groups) {
+      const forms = [g.term, ...(g.aliases ?? [])];
+      if (forms.some((f) => lc.includes(f.toLowerCase()))) return g.type as string;
     }
-    return {
-      id, title: f.text.slice(0, 60), summary: f.text,
-      kind: (webApp ? "feature" : "topic") as "feature" | "topic",
-      view_id: webApp ? viewId : undefined, fact_ids: [f.fact_id],
-      checks: [], fidelity: "claimed" as const, goal_ids: goalFor(i),
-    };
+    return "Topic";
+  };
+  const entities = ctx.facts.map((f) => {
+    const label = firstSentence(f.text);
+    return { type: typeFor(f.text), label, aliases: [label], fact_ids: [f.fact_id] };
   });
-
-  const edges = nodes.slice(1).map((n, i) => ({
-    from: nodes[i].id, to: n.id, kind: "next" as const, fidelity: "claimed" as const,
-  }));
-
-  const views = webApp
-    ? [{ view_id: viewId, title: ctx.sourceId, url_patterns: ctx.urlPatterns, node_ids: nodes.map((n) => n.id), fidelity: "claimed" as const }]
-    : [];
-
-  return { nodes, views, edges };
-}
-
-/** Deterministic `link`: induce cross-source connections so the graph is one
- *  connected whole. Connects each source's representative node to the next (cold),
- *  or the new source's first node to an existing node (incremental). */
-function detLink(ctx: {
-  existing_nodes: Array<{ id: string; view_id?: string }>;
-  new_nodes: Array<{ id: string; view_id?: string }>;
-}): v.InferOutput<typeof LinkResult> {
-  const induced: Array<{ from: string; to: string; kind: "related_to" }> = [];
-  if (ctx.existing_nodes.length && ctx.new_nodes.length) {
-    induced.push({ from: ctx.new_nodes[0].id, to: ctx.existing_nodes[0].id, kind: "related_to" });
-  } else {
-    // Cold: one representative node per source (grouped by view_id), chained.
-    const reps: string[] = [];
-    const seen = new Set<string>();
-    for (const n of ctx.new_nodes) {
-      const v = n.view_id ?? "?";
-      if (!seen.has(v)) { seen.add(v); reps.push(n.id); }
-    }
-    for (let i = 1; i < reps.length; i++) induced.push({ from: reps[i - 1], to: reps[i], kind: "related_to" });
-  }
-  return { view_merges: [], induced_edges: induced, orphans: [] };
-}
-
-/** Deterministic `judge` — the CI stand-in for a resolver's semantic yes/no. It
- *  takes the FIRST string field as the claim and the rest as evidence, and answers
- *  yes when the claim's tokens are well-covered by the evidence (corroboration or
- *  support). Purely reproducible; the real gateway uses the model instead. */
-function detJudge(content: string): { yes: boolean } {
-  let obj: Record<string, unknown>;
-  try { obj = JSON.parse(content) as Record<string, unknown>; } catch { return { yes: false }; }
-  const strs = Object.values(obj).filter((x): x is string => typeof x === "string");
-  if (strs.length < 2) return { yes: false };
-  const claimToks = new Set(strs[0].toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 2));
-  if (claimToks.size === 0) return { yes: false };
-  const evidence = strs.slice(1).join(" ").toLowerCase();
-  let hit = 0;
-  for (const t of claimToks) if (evidence.includes(t)) hit++;
-  return { yes: hit / claimToks.size >= 0.6 };
+  return { entities, links: [] };
 }
 
 export class DeterministicModelGateway implements ModelGateway {
@@ -144,19 +81,19 @@ export class DeterministicModelGateway implements ModelGateway {
     if (req.label.startsWith("describe")) {
       return v.parse(req.schema, fakeDescribe(req.content));
     }
-    if (req.label.startsWith("structure")) {
-      const ctx = JSON.parse(req.content) as Parameters<typeof detStructure>[0];
-      return v.parse(req.schema, detStructure(ctx));
+    if (req.label.startsWith("model")) {
+      const ctx = JSON.parse(req.content) as Parameters<typeof detModel>[0];
+      return v.parse(req.schema, detModel(ctx));
     }
-    if (req.label.startsWith("link")) {
-      const ctx = JSON.parse(req.content) as Parameters<typeof detLink>[0];
-      return v.parse(req.schema, detLink(ctx));
+    if (req.label.startsWith("resolve-verify")) {
+      // The independent verifier: a STRICTER same/different bar (spec 04 §2.3).
+      const { a, b } = JSON.parse(req.content) as { a: { surfaces: string[] }; b: { surfaces: string[] } };
+      return v.parse(req.schema, { yes: similarity(a.surfaces, b.surfaces) >= 0.9 });
     }
-    if (req.label.startsWith("judge")) {
-      // The deterministic stand-in for a resolver's semantic judgment. Lexical
-      // token-coverage lives HERE (a CI harness that must be reproducible), NOT in
-      // the shipping resolvers — the real gateway answers with the model.
-      return v.parse(req.schema, detJudge(req.content));
+    if (req.label.startsWith("resolve")) {
+      // The proposing judge: does the model think these might be the same entity?
+      const { a, b } = JSON.parse(req.content) as { a: { surfaces: string[] }; b: { surfaces: string[] } };
+      return v.parse(req.schema, { yes: similarity(a.surfaces, b.surfaces) >= 0.5 });
     }
     throw new Error(`DeterministicModelGateway: no responder for label '${req.label}'`);
   }

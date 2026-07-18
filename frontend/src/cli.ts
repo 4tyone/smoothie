@@ -11,12 +11,11 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { runCompile } from "./pipeline.ts";
 import { loadConfig, type SmoothieConfig } from "./config.ts";
 import { DeterministicModelGateway } from "./model/deterministic.ts";
 import type { ModelGateway } from "./model/gateway.ts";
 
-const SCHEMA_VERSION = "bc.v1";
+const SCHEMA_VERSION = "ontology.v1";
 
 function resolveSvmBin(): string {
   if (process.env.SVM_BIN) return process.env.SVM_BIN;
@@ -156,38 +155,184 @@ function loadDotEnv(folder: string): void {
   }
 }
 
+/** Recursively sort object keys so the written ontology bytes are deterministic. */
+function canonicalJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalJson);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(value as Record<string, unknown>).sort()) out[k] = canonicalJson((value as Record<string, unknown>)[k]);
+    return out;
+  }
+  return value;
+}
+
+/** `smoothie migrate <folder>` — one-shot bc.json → ontology.json (spec 09 §3). */
+async function cmdMigrate(argv: string[]): Promise<number> {
+  const folder = argv.find((a) => !a.startsWith("--"));
+  if (!folder) {
+    console.error("usage: smoothie migrate <folder>   # convert .smoothie/bc.json → .smoothie/ontology.json");
+    return 2;
+  }
+  const bcDir = path.join(path.resolve(folder), ".smoothie");
+  const bcPath = path.join(bcDir, "bc.json");
+  if (!fs.existsSync(bcPath)) {
+    console.error(`no bc.json at ${bcPath} — nothing to migrate.`);
+    return 1;
+  }
+  const { migrateBcToOntology } = await import("./stages/migrate.ts");
+  const bc = JSON.parse(fs.readFileSync(bcPath, "utf8"));
+  const ontology = migrateBcToOntology(bc, "0.1.0");
+  const ontologyPath = path.join(bcDir, "ontology.json");
+  fs.writeFileSync(ontologyPath, JSON.stringify(canonicalJson(ontology), null, 2) + "\n");
+
+  const res = spawnSync(resolveSvmBin(), ["validate", ontologyPath], { encoding: "utf8" });
+  if (res.status !== 0) {
+    console.error(`migrate produced an invalid ontology:\n${res.stderr || res.stdout || ""}`);
+    return 1;
+  }
+  console.error(`✓ migrated ${bcPath} → ${ontologyPath}`);
+  return 0;
+}
+
+/** `smoothie promote|demote <folder> <logic_unit_id> [--why=...]` — transition a
+ *  logic unit observed↔executable (spec 10 §3). Promotion is gated by G8 eligibility. */
+async function cmdPromote(argv: string[], isDemote: boolean): Promise<number> {
+  const nonFlag = argv.filter((a) => !a.startsWith("--"));
+  const folder = nonFlag[0];
+  const luId = nonFlag[1];
+  if (!folder || !luId) {
+    console.error(`usage: smoothie ${isDemote ? "demote" : "promote"} <folder> <logic_unit_id> [--why=...]`);
+    return 2;
+  }
+  const abs = path.resolve(folder);
+  const bcDir = path.join(abs, ".smoothie");
+  const ontPath = path.join(bcDir, "ontology.json");
+  if (!fs.existsSync(ontPath)) {
+    console.error(`no ontology.json at ${ontPath}`);
+    return 1;
+  }
+  const ont = JSON.parse(fs.readFileSync(ontPath, "utf8"));
+  const whyArg = argv.find((a) => a.startsWith("--why="));
+  const why = whyArg ? whyArg.slice("--why=".length) : undefined;
+
+  const { checkEligibility, promote, demote } = await import("./stages/promote.ts");
+
+  if (isDemote) {
+    if (!ont.logic_units?.[luId]) {
+      console.error(`logic unit ${luId} not found`);
+      return 1;
+    }
+    demote(ont, luId, why);
+  } else {
+    let min = 0.7;
+    let autonomy = { blastSmallMax: 50, judgedPenalty: 1 };
+    try {
+      const cfg = loadConfig(abs).config;
+      min = cfg.promotion?.min_de_facto_support ?? 0.7;
+      autonomy = { blastSmallMax: cfg.autonomy?.blast_small_max ?? 50, judgedPenalty: cfg.autonomy?.judged_penalty ?? 1 };
+    } catch { /* defaults */ }
+    const elig = checkEligibility(ont, luId, min);
+    if (!elig.eligible) {
+      console.error(`✗ ${luId} is not promotable (G8 eligibility):\n${elig.reasons.map((r) => "  - " + r).join("\n")}`);
+      return 1;
+    }
+    const flag = (name: string): string | undefined => {
+      const a = argv.find((x) => x.startsWith(`--${name}=`));
+      return a ? a.slice(name.length + 3) : undefined;
+    };
+    promote(ont, luId, why, {
+      disposition: flag("disposition"),
+      reversibility: flag("reversibility"),
+      blastEntities: flag("blast") ? Number(flag("blast")) : undefined,
+      writes: argv.filter((x) => x.startsWith("--write=")).map((x) => x.slice("--write=".length)),
+      reads: argv.filter((x) => x.startsWith("--read=")).map((x) => x.slice("--read=".length)),
+      autonomy,
+    });
+  }
+
+  fs.writeFileSync(ontPath, JSON.stringify(canonicalJson(ont), null, 2) + "\n");
+  const res = spawnSync(resolveSvmBin(), ["validate", ontPath], { encoding: "utf8" });
+  if (res.status !== 0) {
+    console.error(`${isDemote ? "demote" : "promote"} produced an invalid ontology:\n${res.stderr || res.stdout || ""}`);
+    return 1;
+  }
+  // Best-effort versioned commit (the operation is reversible via the git store).
+  if (fs.existsSync(path.join(bcDir, ".git"))) {
+    spawnSync("git", ["-C", bcDir, "add", "ontology.json"]);
+    spawnSync("git", ["-C", bcDir, "-c", "user.name=Smoothie", "-c", "user.email=smoothie@smoothie.local", "commit", "-q", "-m", `${isDemote ? "demote" : "promote"} ${luId}`, "--", "ontology.json"]);
+  }
+  console.error(`✓ ${isDemote ? "demoted" : "promoted"} ${luId} → ${ont.logic_units[luId].state}${isDemote ? "" : " (L0 propose-only)"}`);
+  return 0;
+}
+
+/** `smoothie conformance <folder>` — run the conformance loop (spec 10 §6): measure
+ *  each executable logic unit's drift and auto-demote drifted flows to observed. */
+async function cmdConformance(argv: string[]): Promise<number> {
+  const folder = argv.find((a) => !a.startsWith("--"));
+  if (!folder) {
+    console.error("usage: smoothie conformance <folder>");
+    return 2;
+  }
+  const abs = path.resolve(folder);
+  const bcDir = path.join(abs, ".smoothie");
+  const ontPath = path.join(bcDir, "ontology.json");
+  if (!fs.existsSync(ontPath)) {
+    console.error(`no ontology.json at ${ontPath}`);
+    return 1;
+  }
+  const ont = JSON.parse(fs.readFileSync(ontPath, "utf8"));
+  let cfg = { driftAlert: 0.15, driftMax: 0.35 };
+  try {
+    const c = loadConfig(abs).config.conformance;
+    cfg = { driftAlert: c?.drift_alert ?? 0.15, driftMax: c?.drift_max ?? 0.35 };
+  } catch { /* defaults */ }
+
+  const { runConformance } = await import("./stages/conformance.ts");
+  const res = runConformance(ont, cfg);
+  ont.notes = [...(ont.notes ?? []), ...res.notes];
+
+  fs.writeFileSync(ontPath, JSON.stringify(canonicalJson(ont), null, 2) + "\n");
+  const r = spawnSync(resolveSvmBin(), ["validate", ontPath], { encoding: "utf8" });
+  if (r.status !== 0) {
+    console.error(`conformance produced an invalid ontology:\n${r.stderr || r.stdout || ""}`);
+    return 1;
+  }
+  if (fs.existsSync(path.join(bcDir, ".git")) && res.notes.length) {
+    spawnSync("git", ["-C", bcDir, "add", "ontology.json"]);
+    spawnSync("git", ["-C", bcDir, "-c", "user.name=Smoothie", "-c", "user.email=smoothie@smoothie.local", "commit", "-q", "-m", `conformance: -${res.demoted.length} demoted`, "--", "ontology.json"]);
+  }
+  console.error(`✓ conformance: ${res.demoted.length} demoted${res.demoted.length ? ` (${res.demoted.join(", ")})` : ""}, ${res.alerts.length} alert(s)`);
+  return 0;
+}
+
 async function cmdCompile(argv: string[]): Promise<number> {
   const deterministic = argv.includes("--deterministic");
-  // --full forces a from-scratch recompile (structure + link re-run over every
-  // source) instead of weaving only new/changed sources into the existing BC.
-  // describe stays cached (keyed by content hash), so only the model stages re-run —
-  // the way to regenerate the graph after a model/config change (spec 03).
+  // --full forces a from-scratch recompile (model + resolve re-run over every source)
+  // instead of reconciling only new/changed sources into the existing ontology.
+  // describe stays cached (keyed by content hash), so only the model stages re-run.
   const full = argv.includes("--full");
   const folder = argv.find((a) => !a.startsWith("--"));
   if (!folder) {
-    console.error("usage: smoothie compile <folder> [--deterministic] [--full] [--resolve[=name,...]]");
+    console.error("usage: smoothie compile <folder> [--deterministic] [--full]");
     return 2;
   }
   // Bring `.env` keys into the environment before the gateway resolves credentials.
   if (!deterministic) loadDotEnv(path.resolve(folder));
-  // --resolve runs the verify stage (promote claimed→confirmed). `--resolve`
-  // alone runs the offline Resolvers; `--resolve=cross-source` picks specific ones.
-  const resolveArg = argv.find((a) => a === "--resolve" || a.startsWith("--resolve="));
-  const resolvers = resolveArg
-    ? (resolveArg.includes("=") ? resolveArg.split("=")[1].split(",") : ["re-examine", "cross-source"])
-    : undefined;
 
   // Read the config's model block up front so the gateway can wire per-provider
-  // credentials (loadConfig is a cheap file read; runCompile re-reads it too).
+  // credentials (loadConfig is a cheap file read; the pipeline re-reads it too).
   let modelCfg: SmoothieConfig["model"];
   if (!deterministic) {
-    try { modelCfg = loadConfig(path.resolve(folder)).config.model; } catch { /* runCompile surfaces the config error */ }
+    try { modelCfg = loadConfig(path.resolve(folder)).config.model; } catch { /* the pipeline surfaces the config error */ }
   }
   const gateway = await makeGateway(deterministic, modelCfg);
-  const run = await runCompile(path.resolve(folder), { gateway, svmBin: resolveSvmBin(), resolvers, ...(full ? { incremental: false } : {}) });
+
+  // ingest → describe → model → resolve → compile → ontology.json (spec 00 §4).
+  const { runOntologyCompile } = await import("./pipeline-ontology.ts");
+  const run = await runOntologyCompile(path.resolve(folder), { gateway, svmBin: resolveSvmBin(), ...(full ? { incremental: false } : {}) });
   console.error(
-    `✓ compiled ${folder} → ${run.bcPath}\n` +
-      `  bc_id: ${run.bcId} · model: ${gateway.kind} · validated: ${run.validated}\n` +
+    `✓ compiled ${folder} → ${run.ontologyPath}\n` +
+      `  ontology_id: ${run.ontologyId} · model: ${gateway.kind} · validated: ${run.validated}\n` +
       `  stages: ${run.telemetry.stages.map((s) => `${s.stage}(${Object.entries(s.counts).map(([k, v]) => `${k}=${v}`).join(",")})`).join(" → ")}`,
   );
   return 0;
@@ -203,13 +348,18 @@ async function main(argv: string[]): Promise<number> {
   if (cmd === "skills") return cmdSkills(argv.slice(3));
   if (cmd === "preprocess") return cmdPreprocess(argv.slice(3));
   if (cmd === "compile") return cmdCompile(argv.slice(3));
+  if (cmd === "migrate") return cmdMigrate(argv.slice(3));
+  if (cmd === "promote") return cmdPromote(argv.slice(3), false);
+  if (cmd === "demote") return cmdPromote(argv.slice(3), true);
+  if (cmd === "conformance") return cmdConformance(argv.slice(3));
   console.error(
-    "smoothie — the multimodal data compiler frontend.\n" +
+    "smoothie — the multimodal ontology compiler frontend.\n" +
       "  smoothie login                               sign in with your ChatGPT subscription (once)\n" +
-      "  smoothie compile <folder> [--deterministic] [--full]  ingest→describe→structure→link→compile → bc.json\n" +
+      "  smoothie compile <folder> [--deterministic] [--full]  ingest→describe→model→resolve→compile → ontology.json\n" +
+      "  smoothie migrate <folder>                    convert an existing .smoothie/bc.json → ontology.json\n" +
       "  smoothie preprocess --check <folder>         dry-run: show each source's resolved processor\n" +
       "  smoothie skills install [folder]             copy built-in reader skills to .smoothie/skills/\n" +
-      "  (the bundled `svm` consumes the BC: `svm query`, `svm emit`)",
+      "  (the bundled `svm` validates and queries the ontology: `svm validate`, `svm ontology`)",
   );
   return cmd ? 2 : 0;
 }
