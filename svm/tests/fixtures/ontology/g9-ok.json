@@ -1,0 +1,93 @@
+{
+  "schema": "ontology.v1",
+  "manifest": {
+    "ontology_id": "ont-g9",
+    "schema": "ontology.v1",
+    "profile": "corpus"
+  },
+  "sources": {
+    "s_log": {
+      "source_id": "s_log",
+      "kind": "jsonl",
+      "hash": "sha256:log"
+    }
+  },
+  "facts": {},
+  "entity_types": {},
+  "entities": {},
+  "link_types": {},
+  "links": {},
+  "resolutions": {},
+  "events": {
+    "e1": {
+      "event_id": "e1",
+      "logic_unit_id": "lu_x",
+      "step_id": "s1",
+      "source_refs": [
+        {
+          "source_id": "s_log",
+          "span": {
+            "kind": "time",
+            "t_start": 0,
+            "t_end": 1
+          }
+        }
+      ]
+    }
+  },
+  "logic_units": {
+    "lu_x": {
+      "logic_unit_id": "lu_x",
+      "name": "Pay Claim",
+      "state": "executable",
+      "trust_class": "judged",
+      "steps": [
+        {
+          "step_id": "s1",
+          "text": "disburse payment",
+          "evidence": [
+            {
+              "class": "de_facto",
+              "event_ids": [
+                "e1"
+              ]
+            }
+          ]
+        }
+      ],
+      "contract": {
+        "reversibility": "irreversible",
+        "blast_radius": {
+          "entities": 5
+        },
+        "restrictions": {
+          "reads": [],
+          "writes": [
+            "Claim"
+          ],
+          "forbid": []
+        },
+        "outputs": [
+          {
+            "name": "record",
+            "writes": "Claim"
+          }
+        ],
+        "disposition": {
+          "requested": "L3",
+          "floor": "L0",
+          "effective": "L0"
+        }
+      }
+    }
+  },
+  "version": {
+    "version_id": "v1",
+    "envelope": {
+      "source_hashes": {
+        "s_log": "sha256:log"
+      }
+    },
+    "operations": []
+  }
+}

@@ -3,25 +3,22 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
-mod bc;
 mod cache;
 mod cli;
 mod credentials;
-mod emit;
 mod error;
 mod index;
-mod policy;
-mod query;
+mod ontology;
 mod storage;
 
 use cli::{
-    bc as bc_cmd, cache as cache_cmd, emit as emit_cmd, glossary, history, hit, init, node, notes,
-    query as query_cmd, rollback, skill, sync, validate, write,
+    cache as cache_cmd, feedback, glossary, history, hit, init, node, notes,
+    ontology as ontology_cmd, rollback, skill, sync, validate, write,
 };
 
 #[derive(Parser)]
 #[command(name = "svm")]
-#[command(author, version, about = "SVM — the deterministic Smoothie runtime that consumes a bc.v1 BC", long_about = None)]
+#[command(author, version, about = "SVM — the deterministic Smoothie runtime that reads an ontology.v1 ontology", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -29,64 +26,26 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Validate a BC against the bc.v1 schema and the provenance-guarantee gates
+    /// Validate an ontology against ontology.v1 and the gates G1-G7 (spec 01 §8)
     Validate {
-        /// Path to the bc.json file
-        bc_path: PathBuf,
+        /// Path to the ontology.json file
+        ontology_path: PathBuf,
 
         /// Output as JSON
         #[arg(long)]
         json: bool,
     },
 
-    /// Query and traverse a BC — the SVM's primary surface
-    Query {
+    /// Query a typed ontology (spec 06) — the ontology reader's primary surface
+    Ontology {
         #[command(subcommand)]
-        command: QueryCommands,
+        command: OntologyCommands,
     },
 
-    /// Emit a guardrailed runnable slice (web-app profile only)
-    Emit {
-        /// What to emit: skill | test
-        target: String,
-
-        /// Emit a slice for this outline
-        #[arg(long)]
-        outline: Option<String>,
-
-        /// Emit a slice for these node ids (repeatable)
-        #[arg(long = "node")]
-        nodes: Vec<String>,
-
-        /// Execution mode baked into the artifact
-        #[arg(long, default_value = "dry-run")]
-        mode: String,
-
-        /// Directory to write the artifact into
-        #[arg(long)]
-        out: Option<PathBuf>,
-
-        /// Print the artifact to stdout instead of writing a file
-        #[arg(long)]
-        stdout: bool,
-
-        /// Path to the BC (default: discover .smoothie/bc.json)
-        #[arg(long)]
-        bc: Option<PathBuf>,
-
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-
-        /// Authorize including restricted nodes in the emitted artifact
-        #[arg(long)]
-        reveal: bool,
-    },
-
-    /// Manage a versioned BC (init / history / rollback / show) via the storage port
-    Bc {
+    /// Record consumer-to-producer feedback (spec 08 §5) — gated on the next build
+    Feedback {
         #[command(subcommand)]
-        command: BcCommands,
+        command: FeedbackCommands,
     },
 
     /// Print or install the SVM skill (SKILL.md)
@@ -212,132 +171,142 @@ enum Commands {
     },
 }
 
-/// A `--bc` path + `--json` shared by query subcommands.
+/// A `--ont` path + `--json` shared by ontology subcommands.
 #[derive(clap::Args)]
-struct BcOpts {
-    /// Path to the BC (default: discover .smoothie/bc.json)
-    #[arg(long, global = true)]
-    bc: Option<PathBuf>,
+struct OntOpts {
+    /// Path to the ontology (default: discover .smoothie/ontology.json)
+    #[arg(long)]
+    ont: Option<PathBuf>,
     /// Output as JSON
-    #[arg(long, global = true)]
+    #[arg(long)]
     json: bool,
 }
 
 #[derive(Subcommand)]
-enum QueryCommands {
-    /// Get a node with its facts and receipts
-    Node {
+enum OntologyCommands {
+    /// List entity types with their entity counts
+    Types {
+        #[command(flatten)]
+        opts: OntOpts,
+    },
+    /// List entities, optionally filtered by type (id or name) or interface (§10)
+    Entities {
+        #[arg(long = "type")]
+        type_filter: Option<String>,
+        #[arg(long = "interface")]
+        interface_filter: Option<String>,
+        #[command(flatten)]
+        opts: OntOpts,
+    },
+    /// List interfaces and the entity types that implement them (§10)
+    Interfaces {
+        #[command(flatten)]
+        opts: OntOpts,
+    },
+    /// Get an entity with its grounded properties, aliases, and receipts (resolution
+    /// union applied; restricted values withheld unless --reveal)
+    Entity {
         id: String,
-        /// Authorize reading a restricted node's content (spec 06 · §2 read restriction)
+        /// Authorize reading restricted values (spec 06 §6)
         #[arg(long)]
         reveal: bool,
         #[command(flatten)]
-        opts: BcOpts,
+        opts: OntOpts,
     },
-    /// Follow edges from/to a node
-    Edges {
+    /// The facts grounding an entity, with receipts
+    Facts {
         id: String,
-        /// Filter by edge kind (contains|transition|enables|depends_on|next|related_to)
-        #[arg(long)]
-        kind: Option<String>,
-        /// Direction: out | in | both
-        #[arg(long, default_value = "out")]
-        direction: String,
         #[command(flatten)]
-        opts: BcOpts,
+        opts: OntOpts,
     },
-    /// Resolve a view_id to its nodes and observations
-    View {
-        view_id: String,
+    /// Links touching an entity, with receipts
+    Links {
+        id: String,
         #[command(flatten)]
-        opts: BcOpts,
+        opts: OntOpts,
     },
-    /// List the scenes of an outline
-    Outline {
-        outline_id: String,
-        #[command(flatten)]
-        opts: BcOpts,
-    },
-    /// List nodes, optionally filtered by fidelity and/or kind
-    Nodes {
-        /// Filter by fidelity (confirmed|claimed|guessed|absent)
-        #[arg(long)]
-        fidelity: Option<String>,
-        /// Filter by node kind
-        #[arg(long)]
-        kind: Option<String>,
-        #[command(flatten)]
-        opts: BcOpts,
-    },
-    /// Surface gaps (gap:* notes)
-    Gaps {
-        #[command(flatten)]
-        opts: BcOpts,
-    },
-    /// The BC's glossary (all terms, or one). Reads the bytecode, not the index.
-    Glossary {
-        /// A single term to look up (default: list all)
-        term: Option<String>,
-        #[command(flatten)]
-        opts: BcOpts,
-    },
-    /// The BC's notes (all, or one key). Includes gap:* notes plus observations.
-    Notes {
-        /// A single note key to look up (default: list all)
-        key: Option<String>,
-        #[command(flatten)]
-        opts: BcOpts,
-    },
-    /// Bounded breadth-first traversal from a node
+    /// Bounded traversal from an entity over typed links
     Traverse {
         from: String,
-        /// Follow only this edge kind
-        #[arg(long)]
-        kind: Option<String>,
-        /// Maximum hops
         #[arg(long, default_value = "3")]
         depth: usize,
         #[command(flatten)]
-        opts: BcOpts,
+        opts: OntOpts,
+    },
+    /// The resolution role of an entity (canonical / member / independent)
+    Resolve {
+        id: String,
+        #[command(flatten)]
+        opts: OntOpts,
+    },
+    /// Search entities by label or alias (case-insensitive)
+    Search {
+        term: String,
+        #[command(flatten)]
+        opts: OntOpts,
+    },
+    /// Surface gaps (orphan entities and notes)
+    Gaps {
+        #[command(flatten)]
+        opts: OntOpts,
+    },
+    /// Summarize the ontology (manifest, version, counts)
+    Show {
+        #[command(flatten)]
+        opts: OntOpts,
+    },
+    /// List logic units (the verb layer, spec 10)
+    LogicUnits {
+        #[command(flatten)]
+        opts: OntOpts,
+    },
+    /// The conformance report — de jure vs de facto vs espoused per step (spec 10 §2)
+    Conformance {
+        #[arg(long = "logic-unit")]
+        logic_unit: Option<String>,
+        #[command(flatten)]
+        opts: OntOpts,
+    },
+    /// Drift of each executable logic unit from its promoted baseline (spec 10 §6)
+    Drift {
+        #[command(flatten)]
+        opts: OntOpts,
     },
 }
 
 #[derive(Subcommand)]
-enum BcCommands {
-    /// Initialize a git-versioned BC store from a bc.json
-    Init {
-        /// Path to the source bc.json
-        bc_path: PathBuf,
-        /// Store directory (default: a .smoothie/ next to the BC)
+enum FeedbackCommands {
+    /// Record an observation (never auto-applied)
+    Note { target: String, text: String },
+    /// A structured improvement ask (split / re-describe / retype)
+    Request { target: String, kind: String, detail: String },
+    /// Ask the producer to research whether two entities connect
+    LinkResearch {
+        a: String,
+        b: String,
         #[arg(long)]
-        dir: Option<PathBuf>,
-        #[arg(long)]
-        json: bool,
+        why: Option<String>,
     },
-    /// Show the BC's revision history
-    History {
-        /// Store directory (default: discover .smoothie/)
+    /// Propose an entity resolution (runs through the spec-04 gate on the next build)
+    ProposeMerge {
+        a: String,
+        b: String,
         #[arg(long)]
-        dir: Option<PathBuf>,
-        #[arg(short = 'n', long, default_value = "20")]
-        limit: usize,
-        #[arg(long)]
-        json: bool,
+        why: Option<String>,
     },
-    /// Roll the BC back to a prior revision
-    Rollback {
-        revision: String,
+    /// Contest an existing resolution
+    DisputeMerge { resolution_id: String },
+    /// Propose a missing typed link (enters as guessed/consumer; must satisfy G1/G3)
+    AddLink {
+        from: String,
+        to: String,
+        #[arg(long = "type")]
+        link_type: String,
         #[arg(long)]
-        dir: Option<PathBuf>,
-        #[arg(long)]
-        json: bool,
-    },
-    /// Summarize the current BC (manifest, authorship, counts)
-    Show {
-        #[arg(long)]
-        bc: Option<PathBuf>,
-        #[arg(long)]
-        json: bool,
+        why: String,
+        /// Cited evidence fact ids (repeatable) — required to ground the link
+        #[arg(long = "fact")]
+        facts: Vec<String>,
     },
 }
 
@@ -401,78 +370,38 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Commands::Validate { bc_path, json } => validate::run(&bc_path, json),
+        Commands::Validate { ontology_path, json } => validate::run(&ontology_path, json),
 
-        Commands::Query { command } => match command {
-            QueryCommands::Node { id, reveal, opts } => {
-                query_cmd::node(opts.bc.as_deref(), &id, reveal, opts.json)
+        Commands::Ontology { command } => match command {
+            OntologyCommands::Types { opts } => ontology_cmd::types(opts.ont.as_deref(), opts.json),
+            OntologyCommands::Entities { type_filter, interface_filter, opts } => {
+                ontology_cmd::entities(opts.ont.as_deref(), type_filter.as_deref(), interface_filter.as_deref(), opts.json)
             }
-            QueryCommands::Edges {
-                id,
-                kind,
-                direction,
-                opts,
-            } => query_cmd::edges(opts.bc.as_deref(), &id, kind.as_deref(), &direction, opts.json),
-            QueryCommands::View { view_id, opts } => {
-                query_cmd::view(opts.bc.as_deref(), &view_id, opts.json)
+            OntologyCommands::Interfaces { opts } => ontology_cmd::interfaces(opts.ont.as_deref(), opts.json),
+            OntologyCommands::Entity { id, reveal, opts } => {
+                ontology_cmd::entity(opts.ont.as_deref(), &id, reveal, opts.json)
             }
-            QueryCommands::Outline { outline_id, opts } => {
-                query_cmd::outline(opts.bc.as_deref(), &outline_id, opts.json)
+            OntologyCommands::Facts { id, opts } => ontology_cmd::facts(opts.ont.as_deref(), &id, opts.json),
+            OntologyCommands::Links { id, opts } => ontology_cmd::links(opts.ont.as_deref(), &id, opts.json),
+            OntologyCommands::Traverse { from, depth, opts } => {
+                ontology_cmd::traverse(opts.ont.as_deref(), &from, depth, opts.json)
             }
-            QueryCommands::Nodes {
-                fidelity,
-                kind,
-                opts,
-            } => query_cmd::nodes(
-                opts.bc.as_deref(),
-                fidelity.as_deref(),
-                kind.as_deref(),
-                opts.json,
-            ),
-            QueryCommands::Gaps { opts } => query_cmd::gaps(opts.bc.as_deref(), opts.json),
-            QueryCommands::Glossary { term, opts } => query_cmd::glossary(opts.bc.as_deref(), term.as_deref(), opts.json),
-            QueryCommands::Notes { key, opts } => query_cmd::notes(opts.bc.as_deref(), key.as_deref(), opts.json),
-            QueryCommands::Traverse {
-                from,
-                kind,
-                depth,
-                opts,
-            } => query_cmd::traverse(opts.bc.as_deref(), &from, kind.as_deref(), depth, opts.json),
+            OntologyCommands::Resolve { id, opts } => ontology_cmd::resolve(opts.ont.as_deref(), &id, opts.json),
+            OntologyCommands::Search { term, opts } => ontology_cmd::search(opts.ont.as_deref(), &term, opts.json),
+            OntologyCommands::Gaps { opts } => ontology_cmd::gaps(opts.ont.as_deref(), opts.json),
+            OntologyCommands::Show { opts } => ontology_cmd::show(opts.ont.as_deref(), opts.json),
+            OntologyCommands::LogicUnits { opts } => ontology_cmd::logic_units(opts.ont.as_deref(), opts.json),
+            OntologyCommands::Conformance { logic_unit, opts } => ontology_cmd::conformance(opts.ont.as_deref(), logic_unit.as_deref(), opts.json),
+            OntologyCommands::Drift { opts } => ontology_cmd::drift(opts.ont.as_deref(), opts.json),
         },
 
-        Commands::Emit {
-            target,
-            outline,
-            nodes,
-            mode,
-            out,
-            stdout,
-            bc,
-            json,
-            reveal,
-        } => emit_cmd::run(
-            bc.as_deref(),
-            &target,
-            outline.as_deref(),
-            &nodes,
-            &mode,
-            out.as_deref(),
-            stdout,
-            json,
-            reveal,
-        ),
-
-        Commands::Bc { command } => match command {
-            BcCommands::Init { bc_path, dir, json } => {
-                bc_cmd::init(&bc_path, dir.as_deref(), json)
-            }
-            BcCommands::History { dir, limit, json } => {
-                bc_cmd::history(dir.as_deref(), limit, json)
-            }
-            BcCommands::Rollback { revision, dir, json } => {
-                bc_cmd::rollback(&revision, dir.as_deref(), json)
-            }
-            BcCommands::Show { bc, json } => bc_cmd::show(bc.as_deref(), json),
+        Commands::Feedback { command } => match command {
+            FeedbackCommands::Note { target, text } => feedback::note(&target, &text),
+            FeedbackCommands::Request { target, kind, detail } => feedback::request(&target, &kind, &detail),
+            FeedbackCommands::LinkResearch { a, b, why } => feedback::link_research(&a, &b, why.as_deref()),
+            FeedbackCommands::ProposeMerge { a, b, why } => feedback::propose_merge(&a, &b, why.as_deref()),
+            FeedbackCommands::DisputeMerge { resolution_id } => feedback::dispute_merge(&resolution_id),
+            FeedbackCommands::AddLink { from, to, link_type, why, facts } => feedback::add_link(&from, &to, &link_type, &why, &facts),
         },
 
         Commands::Skill { install } => skill::run(install.as_deref()),

@@ -1,0 +1,447 @@
+{
+  "schema": "ontology.v1",
+  "manifest": {
+    "ontology_id": "ont-cat-demo",
+    "schema": "ontology.v1",
+    "producer_version": "0.1.0",
+    "profile": "corpus",
+    "created_at": "2026-07-17T00:00:00Z",
+    "authorship": {
+      "author": "Mels",
+      "organization": "Lumenarc"
+    },
+    "counts": {
+      "entities": 4,
+      "links": 2,
+      "facts": 8,
+      "entity_types": 2,
+      "link_types": 1,
+      "resolutions": 1
+    }
+  },
+  "sources": {
+    "s_10k": {
+      "source_id": "s_10k",
+      "kind": "pdf",
+      "path": "sec-filings/cat-2025-10k.pdf",
+      "hash": "sha256:aaaa"
+    },
+    "s_call": {
+      "source_id": "s_call",
+      "kind": "pdf",
+      "path": "transcripts/cat-2026-Q1-transcript.pdf",
+      "hash": "sha256:bbbb"
+    }
+  },
+  "facts": {
+    "f_company": {
+      "fact_id": "f_company",
+      "kind": "knowledge",
+      "text": "Caterpillar Inc. is the registrant.",
+      "confidence": 0.95,
+      "fidelity": "claimed",
+      "source_refs": [
+        {
+          "source_id": "s_10k",
+          "span": {
+            "kind": "doc",
+            "page": 1,
+            "section": "Cover"
+          }
+        }
+      ]
+    },
+    "f_company_alt": {
+      "fact_id": "f_company_alt",
+      "kind": "knowledge",
+      "text": "Management refers to the company as Caterpillar on the call.",
+      "confidence": 0.8,
+      "fidelity": "claimed",
+      "source_refs": [
+        {
+          "source_id": "s_call",
+          "span": {
+            "kind": "time",
+            "t_start": 0,
+            "t_end": 5
+          }
+        }
+      ]
+    },
+    "f_seg_ci": {
+      "fact_id": "f_seg_ci",
+      "kind": "knowledge",
+      "text": "Construction Industries is a reportable segment.",
+      "confidence": 0.95,
+      "fidelity": "claimed",
+      "source_refs": [
+        {
+          "source_id": "s_10k",
+          "span": {
+            "kind": "doc",
+            "page": 45,
+            "section": "Segment Information"
+          }
+        }
+      ]
+    },
+    "f_seg_ci_sales": {
+      "fact_id": "f_seg_ci_sales",
+      "kind": "knowledge",
+      "text": "Construction Industries sales were $6,500 million.",
+      "confidence": 0.9,
+      "fidelity": "claimed",
+      "source_refs": [
+        {
+          "source_id": "s_10k",
+          "span": {
+            "kind": "doc",
+            "page": 46,
+            "section": "Segment Information"
+          }
+        }
+      ]
+    },
+    "f_seg_et": {
+      "fact_id": "f_seg_et",
+      "kind": "knowledge",
+      "text": "Energy & Transportation is a reportable segment.",
+      "confidence": 0.95,
+      "fidelity": "claimed",
+      "source_refs": [
+        {
+          "source_id": "s_10k",
+          "span": {
+            "kind": "doc",
+            "page": 45,
+            "section": "Segment Information"
+          }
+        }
+      ]
+    },
+    "f_seg_pe": {
+      "fact_id": "f_seg_pe",
+      "kind": "knowledge",
+      "text": "The segment formerly Energy & Transportation is now presented as Power & Energy.",
+      "confidence": 0.85,
+      "fidelity": "claimed",
+      "source_refs": [
+        {
+          "source_id": "s_call",
+          "span": {
+            "kind": "time",
+            "t_start": 120,
+            "t_end": 138
+          }
+        }
+      ]
+    },
+    "f_link_ci": {
+      "fact_id": "f_link_ci",
+      "kind": "knowledge",
+      "text": "Construction Industries is a segment of Caterpillar.",
+      "confidence": 0.95,
+      "fidelity": "claimed",
+      "source_refs": [
+        {
+          "source_id": "s_10k",
+          "span": {
+            "kind": "doc",
+            "page": 45,
+            "section": "Segment Information"
+          }
+        }
+      ]
+    },
+    "f_link_pe": {
+      "fact_id": "f_link_pe",
+      "kind": "knowledge",
+      "text": "Power & Energy is a segment of Caterpillar.",
+      "confidence": 0.95,
+      "fidelity": "claimed",
+      "source_refs": [
+        {
+          "source_id": "s_10k",
+          "span": {
+            "kind": "doc",
+            "page": 45,
+            "section": "Segment Information"
+          }
+        }
+      ]
+    }
+  },
+  "entity_types": {
+    "et_segment": {
+      "type_id": "et_segment",
+      "name": "Segment",
+      "description": "A reportable business segment.",
+      "property_schema": {
+        "name": {
+          "value_kind": "string",
+          "cardinality": "one",
+          "required": true,
+          "identity": true
+        },
+        "sales_usd_m": {
+          "value_kind": "number",
+          "cardinality": "many",
+          "required": false,
+          "identity": false
+        }
+      },
+      "provenance": {
+        "fact_ids": [
+          "f_seg_ci",
+          "f_seg_et"
+        ]
+      },
+      "fidelity": "claimed",
+      "status": "open"
+    },
+    "et_company": {
+      "type_id": "et_company",
+      "name": "Company",
+      "description": "A reporting corporate entity.",
+      "property_schema": {
+        "name": {
+          "value_kind": "string",
+          "cardinality": "one",
+          "required": true,
+          "identity": true
+        }
+      },
+      "provenance": {
+        "fact_ids": [
+          "f_company"
+        ]
+      },
+      "fidelity": "claimed",
+      "status": "open"
+    }
+  },
+  "entities": {
+    "e_seg_ci": {
+      "entity_id": "e_seg_ci",
+      "type_id": "et_segment",
+      "label": "Construction Industries",
+      "aliases": [
+        {
+          "text": "Construction Industries",
+          "source_id": "s_10k"
+        }
+      ],
+      "properties": {
+        "name": [
+          {
+            "value": "Construction Industries",
+            "fact_ids": [
+              "f_seg_ci"
+            ],
+            "fidelity": "claimed"
+          }
+        ],
+        "sales_usd_m": [
+          {
+            "value": 6500,
+            "fact_ids": [
+              "f_seg_ci_sales"
+            ],
+            "fidelity": "claimed"
+          }
+        ]
+      },
+      "provenance": {
+        "fact_ids": [
+          "f_seg_ci"
+        ],
+        "source_ids": [
+          "s_10k"
+        ]
+      },
+      "status": "active"
+    },
+    "e_seg_pe": {
+      "entity_id": "e_seg_pe",
+      "type_id": "et_segment",
+      "label": "Power & Energy",
+      "aliases": [
+        {
+          "text": "Energy & Transportation",
+          "source_id": "s_10k"
+        },
+        {
+          "text": "Power & Energy",
+          "source_id": "s_call"
+        }
+      ],
+      "properties": {
+        "name": [
+          {
+            "value": "Power & Energy",
+            "fact_ids": [
+              "f_seg_pe"
+            ],
+            "fidelity": "claimed"
+          }
+        ]
+      },
+      "provenance": {
+        "fact_ids": [
+          "f_seg_et",
+          "f_seg_pe"
+        ],
+        "source_ids": [
+          "s_10k",
+          "s_call"
+        ]
+      },
+      "status": "active"
+    },
+    "e_company": {
+      "entity_id": "e_company_WRONG",
+      "type_id": "et_company",
+      "label": "Caterpillar Inc.",
+      "aliases": [
+        {
+          "text": "Caterpillar Inc.",
+          "source_id": "s_10k"
+        }
+      ],
+      "properties": {
+        "name": [
+          {
+            "value": "Caterpillar Inc.",
+            "fact_ids": [
+              "f_company"
+            ],
+            "fidelity": "claimed"
+          }
+        ]
+      },
+      "provenance": {
+        "fact_ids": [
+          "f_company"
+        ],
+        "source_ids": [
+          "s_10k"
+        ]
+      },
+      "resolved_from": [
+        "e_company_alt"
+      ],
+      "status": "active"
+    },
+    "e_company_alt": {
+      "entity_id": "e_company_alt",
+      "type_id": "et_company",
+      "label": "Caterpillar",
+      "aliases": [
+        {
+          "text": "Caterpillar",
+          "source_id": "s_call"
+        }
+      ],
+      "properties": {
+        "name": [
+          {
+            "value": "Caterpillar",
+            "fact_ids": [
+              "f_company_alt"
+            ],
+            "fidelity": "claimed"
+          }
+        ]
+      },
+      "provenance": {
+        "fact_ids": [
+          "f_company_alt"
+        ],
+        "source_ids": [
+          "s_call"
+        ]
+      },
+      "merged_into": "e_company",
+      "status": "active"
+    }
+  },
+  "link_types": {
+    "lt_belongs": {
+      "link_type_id": "lt_belongs",
+      "name": "belongs_to",
+      "from_type_id": "et_segment",
+      "to_type_id": "et_company",
+      "cardinality": "many_to_many",
+      "directed": true,
+      "description": "A segment belongs to a company.",
+      "provenance": {
+        "fact_ids": [
+          "f_link_ci"
+        ]
+      },
+      "status": "open"
+    }
+  },
+  "links": {
+    "l_ci": {
+      "link_id": "l_ci",
+      "link_type_id": "lt_belongs",
+      "from": "e_seg_ci",
+      "to": "e_company",
+      "provenance": {
+        "fact_ids": [
+          "f_link_ci"
+        ]
+      },
+      "fidelity": "claimed"
+    },
+    "l_pe": {
+      "link_id": "l_pe",
+      "link_type_id": "lt_belongs",
+      "from": "e_seg_pe",
+      "to": "e_company",
+      "provenance": {
+        "fact_ids": [
+          "f_link_pe"
+        ]
+      },
+      "fidelity": "claimed"
+    }
+  },
+  "resolutions": {
+    "r_company": {
+      "resolution_id": "r_company",
+      "canonical": "e_company",
+      "members": [
+        "e_company_alt"
+      ],
+      "evidence": {
+        "fact_ids": [
+          "f_company",
+          "f_company_alt"
+        ],
+        "rationale": "Same registrant referred to by full and short name across sources."
+      },
+      "confidence": 0.96,
+      "method": "agent+verified",
+      "verified_by": "judge",
+      "created_in_version": "v1",
+      "reversible": true
+    }
+  },
+  "version": {
+    "version_id": "v1",
+    "created_at": "2026-07-17T00:00:00Z",
+    "envelope": {
+      "source_hashes": {
+        "s_10k": "sha256:aaaa",
+        "s_call": "sha256:bbbb"
+      },
+      "models": {
+        "model": "deterministic"
+      },
+      "prompt_versions": {}
+    },
+    "operations": []
+  }
+}

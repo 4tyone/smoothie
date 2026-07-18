@@ -1,13 +1,12 @@
-pub mod bc;
 pub mod cache;
-pub mod emit;
+pub mod feedback;
 pub mod glossary;
 pub mod history;
 pub mod hit;
 pub mod init;
 pub mod node;
 pub mod notes;
-pub mod query;
+pub mod ontology;
 pub mod rollback;
 pub mod skill;
 pub mod sync;
